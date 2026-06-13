@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cloudflare App Cost Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; }
+  html,body { background:#faf9f7; color:#1c1917; overscroll-behavior:none; margin:0; font-family:"Inter","Segoe UI",Helvetica,sans-serif; -webkit-font-smoothing:antialiased; }
+  .wrap { max-width:1240px; margin:0 auto; padding:22px 20px 80px; }
+  header h1 { font-size:24px; font-weight:800; margin:0 0 3px; letter-spacing:-0.02em; }
+  header p { color:#78716c; margin:0; font-size:13.5px; }
+  .presets { display:flex; gap:8px; flex-wrap:wrap; margin:16px 0 6px; align-items:center; }
+  .presets span { font-size:12px; color:#78716c; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; margin-right:4px; }
+  .pbtn,.reset { border:1px solid #d6d3d1; background:#fff; color:#1c1917; padding:6px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; font-family:inherit; }
+  .pbtn:hover { background:#f0fdf4; border-color:#059669; }
+  .pbtn.active { background:#059669; border-color:#059669; color:#fff; }
+  .reg select { padding:6px 10px; border:1px solid #d6d3d1; border-radius:8px; font-family:inherit; font-size:13px; font-weight:600; }
+  .reset { margin-left:auto; color:#78716c; }
+  .grid { display:grid; grid-template-columns:1.55fr 1fr; gap:22px; margin-top:14px; align-items:start; }
+  .card { background:#fff; border:1px solid #e7e5e4; border-radius:14px; padding:18px 18px 8px; margin-bottom:18px; }
+  .card h2 { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:#047857; margin:0 0 14px; }
+  .card h2.amber { color:#b45309; }
+  .row { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  .row label { flex:1; font-size:13.5px; font-weight:500; }
+  .row .sub { display:block; font-size:11.5px; color:#a8a29e; font-weight:400; }
+  .row input[type=number],.row select { width:120px; padding:7px 9px; border:1px solid #d6d3d1; border-radius:8px; font-family:inherit; font-size:13px; text-align:right; color:#1c1917; background:#fff; }
+  .row select { text-align:left; width:200px; }
+  .row .unit { width:60px; font-size:12px; color:#a8a29e; }
+  input[type=range] { width:100%; accent-color:#059669; height:22px; }
+  .slider-row { margin-bottom:14px; }
+  .slider-row .top { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:2px; }
+  .slider-row .top label { font-size:13.5px; font-weight:500; }
+  .slider-row .top b { font-size:14px; font-weight:700; color:#047857; }
+  .toggle { display:flex; align-items:center; gap:10px; margin-bottom:12px; cursor:pointer; }
+  .toggle input { width:18px; height:18px; accent-color:#059669; }
+  .toggle label { font-size:13.5px; cursor:pointer; }
+  .note { background:#f5f5f4; border-radius:8px; padding:9px 11px; font-size:12px; color:#57534e; margin-bottom:8px; }
+
+  .results { position:sticky; top:14px; }
+  .pnl { background:#fff; border:1px solid #e7e5e4; border-radius:14px; padding:16px 18px; margin-bottom:16px; box-shadow:0 2px 10px #1c191708; }
+  .pnl .uline { font-size:12px; color:#78716c; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; }
+  .pnl .uline b { color:#047857; font-size:15px; }
+  .pnl-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .pnl-cell .k { font-size:11px; color:#78716c; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; }
+  .pnl-cell .v { font-size:26px; font-weight:800; letter-spacing:-0.02em; line-height:1.1; margin-top:1px; }
+  .red { color:#b91c1c; } .green { color:#047857; }
+  .pnl-sub { display:flex; justify-content:space-between; margin-top:12px; padding-top:10px; border-top:1px solid #f0efed; font-size:12.5px; color:#57534e; }
+  .pnl-sub b { color:#1c1917; }
+  .pnl-split { margin-top:8px; font-size:11.5px; color:#a8a29e; }
+  .pnl-split span { margin-right:12px; }
+
+  .b-row { border-bottom:1px solid #f5f5f4; padding:9px 0; cursor:pointer; }
+  .b-row:last-child { border-bottom:0; }
+  .b-head { display:flex; justify-content:space-between; align-items:baseline; font-size:13px; }
+  .b-head .nm { color:#292524; font-weight:500; }
+  .b-head .nm:before { content:"\25B8"; color:#a8a29e; font-size:10px; margin-right:6px; display:inline-block; transition:transform .15s; }
+  .b-row.open .b-head .nm:before { transform:rotate(90deg); }
+  .b-head .amt b { font-weight:700; } .b-head .amt em { color:#a8a29e; font-style:normal; font-size:11.5px; margin-left:6px; }
+  .bar { height:6px; background:#f5f5f4; border-radius:4px; overflow:hidden; margin-top:5px; }
+  .bar>div { height:100%; background:#059669; border-radius:4px; transition:width .2s; }
+  .bar.amber>div { background:#b45309; } .bar.llm>div { background:#9a3412; }
+  .b-sub { display:none; margin-top:7px; padding:6px 0 2px 14px; }
+  .b-row.open .b-sub { display:block; }
+  .srow { display:flex; justify-content:space-between; font-size:12px; color:#78716c; padding:2px 0; }
+  .srow b { color:#44403c; font-weight:600; }
+
+  .metrics { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .metric { border:1px solid #e7e5e4; border-radius:10px; padding:10px 12px; }
+  .metric .k { font-size:11px; color:#78716c; font-weight:600; text-transform:uppercase; letter-spacing:0.05em; }
+  .metric .v { font-size:17px; font-weight:700; margin-top:2px; }
+  .warn { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:10px 12px; font-size:12.5px; color:#92400e; margin-bottom:8px; }
+  .ok { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:10px 12px; font-size:12.5px; color:#166534; }
+  .infocard { font-size:12.5px; color:#57534e; }
+  .infocard .it { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f5f5f4; }
+  .infocard .it:last-child { border-bottom:0; } .infocard .it b { color:#1c1917; } .free { color:#047857; font-weight:700; }
+  .advisor { background:#fff; border:1px solid #d8f0e6; border-radius:14px; padding:16px 18px; margin-bottom:16px; box-shadow:0 2px 14px #04785712; }
+  .advisor h2 { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#047857; margin:0 0 10px; }
+  .adv-ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:10px; padding:11px 13px; font-size:13px; font-weight:600; }
+  .adv-bad { font-size:12.5px; color:#b91c1c; font-weight:700; margin-bottom:6px; }
+  .adv-driver { font-size:12px; color:#78716c; margin-bottom:11px; }
+  .adv-fix { display:flex; justify-content:space-between; align-items:center; gap:10px; border:1px solid #e7e5e4; border-radius:10px; padding:9px 11px; margin-bottom:7px; }
+  .adv-t { font-size:12.5px; color:#292524; } .adv-t em { color:#047857; font-style:normal; font-weight:700; }
+  .adv-fix button { border:1px solid #059669; background:#059669; color:#fff; border-radius:8px; padding:5px 13px; font-size:12px; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap; }
+  .adv-fix button:hover { background:#047857; }
+  table.scen { width:100%; border-collapse:collapse; font-size:12px; }
+  table.scen th { text-align:left; color:#78716c; font-weight:600; padding:5px 6px; border-bottom:1px solid #e7e5e4; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; }
+  table.scen td { padding:6px; border-bottom:1px solid #f5f5f4; }
+  table.scen button { border:1px solid #d6d3d1; background:#fff; border-radius:6px; padding:3px 8px; font-size:11px; cursor:pointer; font-family:inherit; }
+  table.scen button.del { color:#b91c1c; border-color:#fecaca; }
+  .saverow { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+  .saverow input { flex:1; text-align:left; padding:7px 9px; border:1px solid #d6d3d1; border-radius:8px; font-family:inherit; font-size:13px; }
+  .saverow button { border:1px solid #059669; background:#059669; color:#fff; border-radius:8px; padding:7px 13px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .card.flash { box-shadow:0 0 0 2px #059669, 0 4px 18px #04785728 !important; transition:box-shadow .2s; }
+  #toast { position:fixed; left:50%; bottom:24px; transform:translate(-50%,20px); background:#052e23; color:#fff; padding:11px 18px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; pointer-events:none; transition:opacity .25s,transform .25s; z-index:60; box-shadow:0 8px 28px #00000033; }
+  #toast.show { opacity:1; transform:translate(-50%,0); }
+  .pr-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .pr { border:1px solid #e7e5e4; border-radius:10px; padding:9px 10px; }
+  .prk { font-size:10.5px; color:#78716c; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+  .prv { font-size:18px; font-weight:800; margin-top:2px; }
+  .pr-status { margin-top:10px; font-size:12.5px; padding:9px 11px; border-radius:9px; font-weight:600; }
+  .pr-status.ok { background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; }
+  .pr-status.warn { background:#fffbeb; color:#92400e; border:1px solid #fde68a; }
+  .pr-status.bad { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+  .pr-use { margin-top:10px; width:100%; border:1px solid #059669; background:#059669; color:#fff; border-radius:9px; padding:9px; font-size:13px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .pr-use:hover { background:#047857; }
+  @media (max-width:1100px){ .pr-grid { grid-template-columns:1fr 1fr; } }
+  .tabs { display:flex; gap:2px; margin:14px 0 0; border-bottom:1px solid #e7e5e4; flex-wrap:wrap; }
+  .tab-btn { border:0; background:transparent; padding:11px 18px; font-size:13.5px; font-weight:600; color:#78716c; cursor:pointer; font-family:inherit; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .tab-btn:hover { color:#1c1917; } .tab-btn.active { color:#047857; border-bottom-color:#059669; }
+  .panel { display:none; } .panel.active { display:block; }
+  .archwrap { max-width:860px; margin-top:18px; }
+  table.ref { width:100%; border-collapse:collapse; font-size:13px; }
+  table.ref th { text-align:left; color:#78716c; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:.04em; padding:7px 8px; border-bottom:1px solid #e7e5e4; }
+  table.ref td { padding:8px; border-bottom:1px solid #f5f5f4; vertical-align:top; }
+  .muted { color:#78716c; font-size:13px; margin:0 0 14px; }
+  .ready-prog { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  .ready-bar { flex:1; height:8px; background:#f5f5f4; border-radius:5px; overflow:hidden; } .ready-bar>div { height:100%; background:#059669; transition:width .3s; }
+  .ready-prog span { font-size:12.5px; color:#78716c; font-weight:700; white-space:nowrap; }
+  .ready-area { font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:#047857; margin:18px 0 8px; font-weight:700; }
+  .ready-item { border:1px solid #e7e5e4; border-radius:10px; margin-bottom:8px; background:#fff; }
+  .ready-item.checked { background:#f7faf8; }
+  .ready-head { display:flex; align-items:center; gap:10px; padding:11px 13px; cursor:pointer; }
+  .ready-cb input { width:17px; height:17px; accent-color:#059669; cursor:pointer; }
+  .ready-t { flex:1; font-size:13.5px; font-weight:600; }
+  .ready-item.checked .ready-t { color:#a8a29e; text-decoration:line-through; }
+  .ready-p { font-size:10px; font-weight:800; padding:2px 8px; border-radius:20px; letter-spacing:.03em; }
+  .ready-p.must { background:#fef2f2; color:#b91c1c; } .ready-p.should { background:#fffbeb; color:#b45309; } .ready-p.later { background:#f5f5f4; color:#78716c; } .ready-p.done { background:#f0fdf4; color:#047857; }
+  .ready-body { display:none; padding:0 13px 12px 42px; }
+  .ready-item.open .ready-body { display:block; }
+  .rb { font-size:12.5px; color:#57534e; margin-bottom:5px; line-height:1.5; } .rb b { color:#1c1917; }
+  .phase { display:flex; gap:12px; margin-bottom:10px; }
+  .phase .n { width:26px; height:26px; flex-shrink:0; border-radius:50%; background:#059669; color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center; }
+  .phase .c b { font-size:13.5px; } .phase .c div { font-size:12.5px; color:#57534e; margin-top:2px; }
+  footer { margin-top:24px; font-size:11px; color:#a8a29e; line-height:1.7; }
+  @media (max-width:900px){ .grid { grid-template-columns:1fr; } .results { position:static; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>Cloudflare App Cost Calculator</h1><p>Model picker, sticky P&amp;L, click any breakdown row to expand. Live, client-side. Prices verified 2026-06-13, models 2026-05-31.</p></header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('calc',this)">Cost Calculator</button>
+    <button class="tab-btn" onclick="showTab('arch',this)">Architecture</button>
+    <button class="tab-btn" onclick="showTab('ready',this)">Readiness</button>
+    <button class="tab-btn" onclick="showTab('build',this)">Build Plan</button>
+    <button class="tab-btn" onclick="showTab('market',this)">Market Pricing</button>
+  </div>
+
+  <section id="panel-calc" class="panel active">
+  <div class="presets">
+    <span>Users</span>
+    <button class="pbtn" data-u="1" onclick="preset(1,this)">Solo</button>
+    <button class="pbtn" data-u="1000" onclick="preset(1000,this)">1K</button>
+    <button class="pbtn" data-u="10000" onclick="preset(10000,this)">10K</button>
+    <button class="pbtn active" data-u="100000" onclick="preset(100000,this)">100K</button>
+    <button class="pbtn" data-u="1000000" onclick="preset(1000000,this)">1M</button>
+    <button class="pbtn" data-u="10000000" onclick="preset(10000000,this)">10M</button>
+    <span class="reg" style="margin-left:10px">Region <select id="region" onchange="recompute()"><option value="eu">EU</option><option value="us">US</option></select></span>
+    <button class="reset" onclick="resetAll()">Reset</button>
+  </div>
+  <div class="presets">
+    <span>Profile</span>
+    <button class="pbtn profbtn" onclick="applyProfile('light',this)">Light</button>
+    <button class="pbtn profbtn" onclick="applyProfile('typical',this)">Typical</button>
+    <button class="pbtn profbtn" onclick="applyProfile('heavy',this)">Heavy</button>
+    <button class="pbtn profbtn" onclick="applyProfile('max',this)">Max</button>
+    <button class="pbtn profbtn" onclick="applyProfile('extreme',this)">Extreme (max ALL)</button>
+  </div>
+
+  <div class="grid">
+    <div class="controls">
+
+      <div class="card">
+        <h2>Scale and API traffic</h2>
+        <div class="slider-row"><div class="top"><label>Users</label><b id="users_v">100,000</b></div><input type="range" id="users_r" min="100" max="100000000" step="100" value="100000" oninput="syncFrom('users',this.value)"></div>
+        <div class="slider-row"><div class="top"><label>API requests per user / month</label><b id="apiPerUser_v">10,000</b></div><input type="range" id="apiPerUser_r" min="0" max="2000000" step="1000" value="10000" oninput="syncFrom('apiPerUser',this.value)"></div>
+        <div class="row"><label>Users</label><input type="number" id="users" value="100000" oninput="syncTo('users',this.value);recompute()"></div>
+        <div class="row"><label>API requests per user</label><input type="number" id="apiPerUser" value="10000" oninput="syncTo('apiPerUser',this.value);recompute()"></div>
+        <div class="row"><label>Days active per month<span class="sub">31 = user uses it every day</span></label><input type="number" id="daysActive" value="31" oninput="recompute()"><span class="unit">days</span></div>
+        <div class="row"><label>or API requests per active day<span class="sub">sets monthly = per-day x days</span></label><input type="number" id="apiPerDay" value="323" oninput="setFromDay('apiPerUser','apiPerDay')"></div>
+        <div class="row"><label>CPU ms per request</label><input type="number" id="cpuMs" value="8" oninput="recompute()"><span class="unit">ms</span></div>
+        <div class="row"><label>Stateful requests (Durable Objects)</label><input type="number" id="statefulPct" value="10" oninput="recompute()"><span class="unit">%</span></div>
+        <div class="row"><label>DO active ms per stateful req</label><input type="number" id="doMs" value="50" oninput="recompute()"><span class="unit">ms</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Database (D1)</h2>
+        <div class="row"><label>D1 reads per request</label><input type="number" id="d1Reads" value="3" oninput="recompute()"></div>
+        <div class="row"><label>D1 writes per request</label><input type="number" id="d1Writes" value="0.3" oninput="recompute()"></div>
+        <div class="row"><label>Relational data per user</label><input type="number" id="d1Kb" value="10" oninput="recompute()"><span class="unit">KB</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Caching and queuing</h2>
+        <div class="row"><label>Cache layer</label><select id="cacheProvider" onchange="recompute()"><option value="kv">Cloudflare KV + Cache API</option><option value="redis">Upstash Redis</option></select></div>
+        <div class="slider-row"><div class="top"><label>Cache hit rate</label><b id="cacheHit_v">30%</b></div><input type="range" id="cacheHit_r" min="0" max="90" step="5" value="30"><input type="hidden" id="cacheHit" value="30"></div>
+        <div class="note">Cache hit cuts LLM, proxy, and DB load by the same share. Biggest cost control.</div>
+        <div class="row"><label>Cache reads per user / month</label><input type="number" id="cacheReadsPU" value="200" oninput="recompute()"></div>
+        <div class="row"><label>Redis stored data (if Upstash)</label><input type="number" id="redisGb" value="1" oninput="recompute()"><span class="unit">GB</span></div>
+        <div class="row"><label>Queue jobs per user / month</label><input type="number" id="qjPU" value="4" oninput="recompute()"></div>
+      </div>
+
+      <div class="card">
+        <h2>Files, storage and retention (R2)</h2>
+        <div class="toggle"><input type="checkbox" id="useRetention" onchange="recompute()"><label for="useRetention">Model storage from data growth + retention</label></div>
+        <div class="row"><label>Data added per user / month</label><input type="number" id="addPU" value="0.1" oninput="recompute()"><span class="unit">GB</span></div>
+        <div class="row"><label>Move to cold after</label><input type="number" id="coldDays" value="30" oninput="recompute()"><span class="unit">days</span></div>
+        <div class="row"><label>Delete or archive after</label><input type="number" id="deleteDays" value="365" oninput="recompute()"><span class="unit">days</span></div>
+        <div class="slider-row"><div class="top"><label>Stored GB per user (when retention off)</label><b id="stGb_v">1</b></div><input type="range" id="stGb_r" min="0" max="100" step="0.5" value="1" oninput="syncFrom('stGb',this.value)"></div>
+        <div class="row"><label>Stored GB per user</label><input type="number" id="stGb" value="1" oninput="syncTo('stGb',this.value);recompute()"></div>
+        <div class="row"><label>Uploads per user / month</label><input type="number" id="upPU" value="10" oninput="recompute()"></div>
+        <div class="row"><label>Downloads per user / month</label><input type="number" id="dlPU" value="100" oninput="recompute()"></div>
+      </div>
+
+      <div class="card">
+        <h2 class="amber">External research and scraping</h2>
+        <div class="row"><label>Scraping compute</label><select id="scrapeCompute" onchange="recompute()"><option value="hetzner">Hetzner servers</option><option value="containers">Cloudflare Containers</option></select></div>
+        <div class="note">Both still need an external residential proxy. Cloudflare IPs get blocked by anti-bot.</div>
+        <div class="slider-row"><div class="top"><label>Research jobs per user / month</label><b id="jobsPU_v">2</b></div><input type="range" id="jobsPU_r" min="0" max="500" step="1" value="2" oninput="syncFrom('jobsPU',this.value)"></div>
+        <div class="row"><label>Research jobs per user</label><input type="number" id="jobsPU" value="2" oninput="syncTo('jobsPU',this.value);recompute()"></div>
+        <div class="row"><label>Proxy data per job</label><input type="number" id="gbJob" value="0.02" oninput="recompute()"><span class="unit">GB</span></div>
+        <div class="row"><label>Residential proxy cost</label><input type="number" id="proxyGB" value="4" oninput="recompute()"><span class="unit">/GB</span></div>
+        <div class="row"><label>Compute minutes per job</label><input type="number" id="minJob" value="3" oninput="recompute()"><span class="unit">min</span></div>
+        <div class="row"><label>Hetzner server cost</label><input type="number" id="srvCost" value="48" oninput="recompute()"><span class="unit">/mo</span></div>
+        <div class="row"><label>Usable hours per server</label><input type="number" id="srvHours" value="500" oninput="recompute()"><span class="unit">hrs</span></div>
+      </div>
+
+      <div class="card">
+        <h2 class="amber">LLM and AI</h2>
+        <div class="row"><label>Heavy / reasoning model</label><select id="modelHeavy" onchange="recompute()"></select></div>
+        <div class="row"><label>Cheap / routing model</label><select id="modelCheap" onchange="recompute()"></select></div>
+        <div class="slider-row"><div class="top"><label>LLM calls per user / month</label><b id="llmPU_v">50</b></div><input type="range" id="llmPU_r" min="0" max="2000" step="5" value="50" oninput="syncFrom('llmPU',this.value)"></div>
+        <div class="row"><label>LLM calls per user</label><input type="number" id="llmPU" value="50" oninput="syncTo('llmPU',this.value);recompute()"></div>
+        <div class="row"><label>or LLM calls per active day<span class="sub">multiple calls per day x days</span></label><input type="number" id="llmPerDay" value="2" oninput="setFromDay('llmPU','llmPerDay')"></div>
+        <div class="row"><label>Input tokens per call</label><input type="number" id="inTok" value="2000" oninput="recompute()"></div>
+        <div class="row"><label>Output tokens per call</label><input type="number" id="outTok" value="1000" oninput="recompute()"></div>
+        <div class="slider-row"><div class="top"><label>Cheap model share</label><b id="haiku_v">70%</b></div><input type="range" id="haiku_r" min="0" max="100" step="5" value="70"><input type="hidden" id="haiku" value="70"></div>
+        <div class="slider-row"><div class="top"><label>AI Gateway savings</label><b id="save_v">40%</b></div><input type="range" id="save_r" min="0" max="70" step="5" value="40"><input type="hidden" id="save" value="40"></div>
+        <div class="toggle"><input type="checkbox" id="includeLLM" checked onchange="recompute()"><label for="includeLLM">Include LLM in the total</label></div>
+      </div>
+
+      <div class="card">
+        <h2>Vector, email, security</h2>
+        <div class="row"><label>Vector queries per user / month</label><input type="number" id="vq" value="100" oninput="recompute()"></div>
+        <div class="row"><label>Stored vectors per user</label><input type="number" id="vstored" value="50" oninput="recompute()"></div>
+        <div class="row"><label>Vector dimensions</label><input type="number" id="dims" value="768" oninput="recompute()"></div>
+        <div class="row"><label>Transactional emails / user / month</label><input type="number" id="txPU" value="10" oninput="recompute()"></div>
+        <div class="row"><label>Newsletter sends / user / month</label><input type="number" id="nlPU" value="4" oninput="recompute()"></div>
+        <div class="row"><label>Email provider</label><select id="provider" onchange="recompute()"><option value="ses">Amazon SES</option><option value="cf">Cloudflare Email</option></select></div>
+        <div class="toggle"><input type="checkbox" id="pro" onchange="recompute()"><label for="pro">Enhanced WAF (Pro +$20/mo)</label></div>
+        <div class="toggle"><input type="checkbox" id="lb" onchange="recompute()"><label for="lb">Load Balancer (+$5/mo)</label></div>
+        <div class="infocard" id="secinfo" style="margin-top:6px"></div>
+      </div>
+
+      <div class="card">
+        <h2>Push notifications and pop-ups</h2>
+        <div class="row"><label>Push opt-in rate<span class="sub">share of users who subscribe</span></label><input type="number" id="pushOptIn" value="30" oninput="recompute()"><span class="unit">%</span></div>
+        <div class="row"><label>Notifications / subscriber / month</label><input type="number" id="pushPU" value="8" oninput="recompute()"></div>
+        <div class="row"><label>or notifications / active day<span class="sub">campaigns per day x days</span></label><input type="number" id="pushPerDay" value="0" oninput="setFromDay('pushPU','pushPerDay')"></div>
+        <div class="infocard" id="pushinfo" style="margin-top:6px"></div>
+      </div>
+
+      <div class="card">
+        <h2>Pricing and revenue</h2>
+        <div class="slider-row"><div class="top"><label>Subscription price per user / month</label><b id="subPrice_v">$10</b></div><input type="range" id="subPrice_r" min="0" max="200" step="1" value="10" oninput="syncFrom('subPrice',this.value)"></div>
+        <div class="row"><label>Price per user</label><input type="number" id="subPrice" value="10" oninput="syncTo('subPrice',this.value);recompute()"></div>
+        <div class="row"><label>Paying share of users<span class="sub">free users do not pay</span></label><input type="number" id="payShare" value="100" oninput="recompute()"><span class="unit">%</span></div>
+        <div class="row"><label>Payment processing fee<span class="sub">Stripe ~2.9% + fixed</span></label><input type="number" id="payFee" value="3" oninput="recompute()"><span class="unit">%</span></div>
+        <div class="row"><label>Target margin<span class="sub">advisor aims for this</span></label><input type="number" id="targetMargin" value="70" oninput="recompute()"><span class="unit">%</span></div>
+        <div class="row"><label>Monthly churn<span class="sub">sets average customer lifetime</span></label><input type="number" id="churn" value="5" oninput="recompute()"><span class="unit">%</span></div>
+        <div class="row"><label>CAC per paying customer<span class="sub">cost to acquire one</span></label><input type="number" id="cac" value="50" oninput="recompute()"><span class="unit">$</span></div>
+      </div>
+    </div>
+
+    <div class="results">
+      <div class="pnl">
+        <div class="uline">Modeling <b id="r_users">100,000</b> users</div>
+        <div class="pnl-grid">
+          <div class="pnl-cell"><div class="k">Total cost / mo</div><div class="v red" id="r_total">$0</div></div>
+          <div class="pnl-cell"><div class="k">Net revenue / mo</div><div class="v green" id="r_rev">$0</div></div>
+          <div class="pnl-cell"><div class="k">Profit / mo</div><div class="v" id="r_profit">$0</div></div>
+          <div class="pnl-cell"><div class="k">Margin</div><div class="v" id="r_margin">0%</div></div>
+        </div>
+        <div class="pnl-sub"><span>Cost per user <b id="r_peruser">$0</b></span><span>Annual profit <b id="r_annual">$0</b></span></div>
+        <div class="pnl-split"><span>CF infra <b id="r_infra">$0</b></span><span>Scraping <b id="r_ext">$0</b></span><span>LLM <b id="r_llm">$0</b></span></div>
+      </div>
+
+      <div class="card"><h2>Pricing recommendation</h2>
+        <div class="pr-grid">
+          <div class="pr"><div class="prk">Current price</div><div class="prv" id="pr_cur">$0</div></div>
+          <div class="pr"><div class="prk">Break-even floor</div><div class="prv" id="pr_be">$0</div></div>
+          <div class="pr"><div class="prk">For target margin</div><div class="prv" id="pr_tgt">$0</div></div>
+          <div class="pr"><div class="prk">Recommended</div><div class="prv green" id="pr_rec">$0</div></div>
+        </div>
+        <div class="pr-status ok" id="pr_status"></div>
+        <button class="pr-use" onclick="useRecommended()">Use recommended price</button>
+      </div>
+      <div class="advisor"><h2>Profitability advisor</h2><div id="advisor"></div></div>
+      <div class="card"><h2>Cost breakdown (click a row)</h2><div id="breakdown"></div></div>
+      <div class="card"><h2>Operations and time</h2><div class="metrics">
+        <div class="metric"><div class="k">Research jobs / mo</div><div class="v" id="o_jobs">0</div></div>
+        <div class="metric"><div class="k">Proxy data / mo</div><div class="v" id="o_data">0</div></div>
+        <div class="metric"><div class="k">Compute hours / mo</div><div class="v" id="o_hours">0</div></div>
+        <div class="metric"><div class="k">Stored data total</div><div class="v" id="o_store">0</div></div>
+        <div class="metric"><div class="k">Push sends / mo</div><div class="v" id="o_push">0</div></div>
+      </div></div>
+      <div class="card"><h2>Unit economics (VC view)</h2><div class="metrics">
+        <div class="metric"><div class="k">ARPU net / mo</div><div class="v" id="vc_arpu">$0</div></div>
+        <div class="metric"><div class="k">Contribution / user</div><div class="v" id="vc_contrib">$0</div></div>
+        <div class="metric"><div class="k">LTV</div><div class="v" id="vc_ltv">$0</div></div>
+        <div class="metric"><div class="k">LTV to CAC</div><div class="v" id="vc_ratio">0x</div></div>
+        <div class="metric"><div class="k">CAC payback</div><div class="v" id="vc_payback">0 mo</div></div>
+        <div class="metric"><div class="k">Avg lifetime</div><div class="v" id="vc_life">0 mo</div></div>
+      </div></div>
+      <div class="card"><h2>Industry benchmarks</h2><table class="ref">
+        <tr><th>Metric</th><th>Healthy</th><th>Great</th><th>Yours</th></tr>
+        <tr><td>Gross margin</td><td>60%+</td><td>75%+</td><td id="bm_margin">-</td></tr>
+        <tr><td>LTV to CAC</td><td>3x+</td><td>5x+</td><td id="bm_ratio">-</td></tr>
+        <tr><td>CAC payback</td><td>under 12 mo</td><td>under 6 mo</td><td id="bm_pay">-</td></tr>
+        <tr><td>Monthly churn</td><td>under 5%</td><td>under 2%</td><td id="bm_churn">-</td></tr>
+        <tr><td>Free to paid</td><td>1 to 5% freemium</td><td>25 to 60% trial</td><td>funnel</td></tr>
+        <tr><td>Rule of 40</td><td>growth plus margin 40+</td><td>-</td><td>add growth</td></tr></table>
+        <p class="muted" style="margin-top:8px">AI products run 50 to 60% gross margin unless caching and cheap model routing pull it to 60 to 75%.</p></div>
+      <div class="card"><h2>Warnings</h2><div id="warnings"></div></div>
+      <div class="card"><h2>Save and compare scenarios</h2>
+        <div class="saverow"><input type="text" id="scenName" placeholder="Name this scenario (e.g. Pro plan, 100K)"><button onclick="saveScen()">Save current</button></div>
+        <div id="scenTable"></div>
+      </div>
+    </div>
+  </div>
+
+  </section>
+
+  <section id="panel-arch" class="panel"><div class="archwrap">
+    <div class="card"><h2>The four cost meters</h2><table class="ref"><tr><th>Meter</th><th>Service</th><th>Cost level</th></tr>
+      <tr><td>API traffic</td><td>Workers + D1 + Durable Objects</td><td>very cheap</td></tr>
+      <tr><td>File storage</td><td>R2</td><td>small, accumulates</td></tr>
+      <tr><td>Email</td><td>SES or Cloudflare Email</td><td>very cheap</td></tr>
+      <tr><td>LLM / AI</td><td>Claude or other via AI Gateway</td><td>the dominant cost</td></tr></table></div>
+    <div class="card"><h2>Locked decisions</h2><table class="ref"><tr><th>Layer</th><th>Decision</th></tr>
+      <tr><td>Cache</td><td>Cloudflare KV + Cache API, Redis only for rate limit and locks</td></tr>
+      <tr><td>Queue</td><td>Cloudflare Queues</td></tr>
+      <tr><td>Scraping compute</td><td>Hetzner steady, CF Containers bursty, proxy external</td></tr>
+      <tr><td>Region</td><td>EU residency, Cloudflare core flat globally</td></tr>
+      <tr><td>Retention</td><td>hot 30 days, cold to one year, then archive</td></tr>
+      <tr><td>Database</td><td>D1 sharded, Postgres + Hyperdrive past about 100M users</td></tr>
+      <tr><td>Email</td><td>SES for bulk, Cloudflare inbound</td></tr>
+      <tr><td>LLM</td><td>AI Gateway cache and route, the dominant cost</td></tr></table></div>
+    <div class="card"><h2>The request flow</h2><table class="ref"><tr><th>Step</th><th>What happens</th><th>Service</th></tr>
+      <tr><td>1</td><td>Request arrives</td><td>Workers</td></tr>
+      <tr><td>2</td><td>Check cache first</td><td>KV / Cache API</td></tr>
+      <tr><td>3</td><td>Hit, return instantly</td><td>none downstream</td></tr>
+      <tr><td>4</td><td>Miss, enqueue heavy work, return fast</td><td>Cloudflare Queues</td></tr>
+      <tr><td>5</td><td>Worker processes the job</td><td>Worker / Container / Hetzner</td></tr>
+      <tr><td>6</td><td>Scrape via proxy, call LLM</td><td>proxy + Claude</td></tr>
+      <tr><td>7</td><td>Cache the result</td><td>KV / R2</td></tr></table></div>
+    <div class="card"><h2>D1 limits and sharding</h2><table class="ref"><tr><th>Limit</th><th>Value (Paid)</th></tr>
+      <tr><td>Max database size</td><td>10 GB, shard above this</td></tr>
+      <tr><td>Databases per account</td><td>50,000</td></tr>
+      <tr><td>Max storage per account</td><td>1 TB, move to Postgres + Hyperdrive past this</td></tr></table></div>
+  </div></section>
+
+  <section id="panel-ready" class="panel"><div class="archwrap">
+    <div class="card"><h2>Launch readiness</h2><p class="muted">Everything across business, technical, architecture and compliance. Tick each as you handle it, it saves in your browser. Click a row to read what it is, why it matters, and how to do it on this stack.</p><div id="readyList"></div></div>
+  </div></section>
+
+  <section id="panel-build" class="panel"><div class="archwrap">
+    <div class="card"><h2>The metering layer, build this first</h2><p class="muted">This is the bridge from the cost model to a real invoice. Every number in the calculator assumes it exists.</p>
+      <table class="ref"><tr><th>Piece</th><th>Role</th></tr>
+      <tr><td>Durable Object per customer</td><td>holds the live usage counter, one per tenant</td></tr>
+      <tr><td>On each API or AI call</td><td>increment the counter, check it against the plan cap</td></tr>
+      <tr><td>At the cap</td><td>block, or allow metered overage per the plan</td></tr>
+      <tr><td>Periodically</td><td>flush usage to D1 and to Stripe for billing</td></tr>
+      <tr><td>Dashboard</td><td>reads D1 for the customer usage and the cost to serve them</td></tr></table></div>
+    <div class="card"><h2>Recommended build sequence</h2>
+      <div class="phase"><div class="n">1</div><div class="c"><b>Scaffold</b><div>Workers, D1, R2, KV, Queues, AI Gateway, Better Auth, customer API keys. The skeleton runs on a branch with a PR.</div></div></div>
+      <div class="phase"><div class="n">2</div><div class="c"><b>Metering and quotas</b><div>The Durable Object per tenant, the plan limits, block at the cap. Usage is counted and capped.</div></div></div>
+      <div class="phase"><div class="n">3</div><div class="c"><b>Routing and billing</b><div>Cheap path versus AI path, cache first, Stripe metered billing with overage. Revenue flows.</div></div></div>
+      <div class="phase"><div class="n">4</div><div class="c"><b>Research and observability</b><div>The scraping engine on Hetzner with residential proxy, Sentry plus per tenant cost attribution.</div></div></div>
+      <div class="phase"><div class="n">5</div><div class="c"><b>Compliance, DX, launch</b><div>GDPR documents and the scraping legality call, API docs and an SDK, then ship and push the one GTM channel.</div></div></div>
+    </div>
+  </div></section>
+
+  <section id="panel-market" class="panel"><div class="archwrap">
+    <div class="card"><h2>Mark what is relevant to your product</h2><p class="muted">Tick the capabilities you offer. The recommendation below anchors to what comparable products charge for that exact set, and still clears your cost floor.</p>
+      <table class="ref"><tr><th>Relevant</th><th>Capability</th><th>Market entry</th><th>Median</th><th>Premium</th><th>Comparable products</th></tr>
+        <tr><td><input type="checkbox" id="mk_api" checked onchange="renderMarket()"></td><td>API access</td><td>$39</td><td>$99</td><td>$299</td><td>API marketplaces, generic API sellers</td></tr>
+        <tr><td><input type="checkbox" id="mk_ai" checked onchange="renderMarket()"></td><td>AI / LLM features</td><td>$29</td><td>$99</td><td>$499</td><td>Credit AI tools, per action $0.05 to $0.10</td></tr>
+        <tr><td><input type="checkbox" id="mk_scrape" checked onchange="renderMarket()"></td><td>Web scraping / data</td><td>$49</td><td>$149</td><td>$749</td><td>Firecrawl $16 to $749, Apify $29 to $199, ScrapingBee $49</td></tr>
+        <tr><td><input type="checkbox" id="mk_enrich" onchange="renderMarket()"></td><td>Enrichment / sales intel</td><td>$149</td><td>$495</td><td>$800</td><td>Clay $149 to $800, about $0.035 per credit</td></tr>
+        <tr><td><input type="checkbox" id="mk_files" onchange="renderMarket()"></td><td>File storage / CMS</td><td>$19</td><td>$49</td><td>$149</td><td>Storage and CMS SaaS tiers</td></tr>
+        <tr><td><input type="checkbox" id="mk_vector" onchange="renderMarket()"></td><td>Vector / RAG search</td><td>$0</td><td>$29</td><td>$99</td><td>Usually bundled, light add-on</td></tr>
+        <tr><td><input type="checkbox" id="mk_eu" onchange="renderMarket()"></td><td>EU residency / compliance</td><td>$0</td><td>$0</td><td>$0</td><td>Enterprise premium, not a standalone line</td></tr>
+      </table></div>
+    <div class="card"><h2>Market anchored price recommendation</h2>
+      <div class="pr-grid">
+        <div class="pr"><div class="prk">Your cost floor</div><div class="prv" id="mk_floor">$0</div></div>
+        <div class="pr"><div class="prk">Market entry</div><div class="prv" id="mk_entry">$0</div></div>
+        <div class="pr"><div class="prk">Market median</div><div class="prv" id="mk_median">$0</div></div>
+        <div class="pr"><div class="prk">Suggested base</div><div class="prv green" id="mk_sugg">$0</div></div>
+      </div>
+      <div class="pr-status ok" id="mk_note"></div>
+      <div class="pr-status ok" id="mk_pos"></div>
+      <button class="pr-use" onclick="useMarket()">Use suggested base price</button></div>
+    <div class="card"><h2>What the 2026 market says</h2><table class="ref">
+      <tr><td>Model</td><td>Hybrid base plus metered credits is the default for AI native products. Pure flat pricing is dying.</td></tr>
+      <tr><td>Margins</td><td>AI compresses SaaS gross margins from 80 to 90 percent down to 50 to 60 percent. Target 60 to 75 percent with caching and cheap model routing.</td></tr>
+      <tr><td>Credits</td><td>Credit based pricing is becoming standard. One credit maps to an API call or an AI action.</td></tr>
+      <tr><td>Outcome pricing</td><td>Charging per completed job, not per access, unlocks 5 to 10x more revenue. Consider it for the AI path.</td></tr>
+      <tr><td>Signal</td><td>GitHub Copilot moved to usage based billing in June 2026. Heavy AI users must be metered.</td></tr></table>
+      <p class="muted" style="margin-top:12px">Sources. Firecrawl, Apify and ScrapingBee pricing pages, Clay pricing 2026, OpenView usage based pricing data, Monetizely AI first SaaS economics 2026. Verified 2026-06-13, re check before a production decision.</p></div>
+  </div></section>
+
+  <footer>Self-contained, no data leaves your browser. Cloudflare core pricing flat globally. Model rates per 1M tokens from the frontier atlas (2026-05-31), live-verify before production. Stripe fee on net revenue. DDoS free.</footer>
+</div>
+
+<script>
+var MODELS={
+ fable5:{n:'Claude Fable 5',i:10,o:50}, opus48:{n:'Claude Opus 4.8',i:5,o:25}, sonnet46:{n:'Claude Sonnet 4.6',i:3,o:15}, haiku45:{n:'Claude Haiku 4.5',i:0.25,o:1.25},
+ gpt55:{n:'OpenAI GPT-5.5',i:5,o:30}, gpt5codex:{n:'OpenAI GPT-5 Codex',i:1.75,o:14},
+ gemini31pro:{n:'Gemini 3.1 Pro',i:2,o:12}, gemini35flash:{n:'Gemini 3.5 Flash',i:1.5,o:9}, gemini3flash:{n:'Gemini 3 Flash',i:0.5,o:3},
+ grok43:{n:'Grok 4.3',i:1.25,o:2.5}, grok41fast:{n:'Grok 4.1 Fast',i:0.2,o:0.5},
+ deepseekv4pro:{n:'DeepSeek V4 Pro',i:0.44,o:0.87}, deepseekv4flash:{n:'DeepSeek V4 Flash',i:0.14,o:0.28},
+ qwen37max:{n:'Qwen3.7-Max',i:2.5,o:7.5}, kimi26:{n:'Kimi K2.6',i:0.68,o:3.42}, glm51:{n:'GLM-5.1',i:1.4,o:4.4}, minimaxm25:{n:'MiniMax M2.5',i:0.3,o:1.2},
+ workersai:{n:'Cloudflare Workers AI (cheap)',i:0.02,o:0.11}
+};
+function fillModels(){
+  var h=document.getElementById('modelHeavy'), c=document.getElementById('modelCheap'), o='';
+  for(var k in MODELS){ o+='<option value="'+k+'">'+MODELS[k].n+' ($'+MODELS[k].i+'/$'+MODELS[k].o+')</option>'; }
+  h.innerHTML=o; c.innerHTML=o; h.value='sonnet46'; c.value='haiku45';
+}
+function val(id){ return parseFloat(document.getElementById(id).value)||0; }
+function sel(id){ return document.getElementById(id).value; }
+function checked(id){ return document.getElementById(id).checked; }
+function fmtMoney(n){ var g=n<0; n=Math.abs(n); var s; if(n>=1000) s=n.toLocaleString('en-US',{maximumFractionDigits:0}); else if(n>=1) s=n.toLocaleString('en-US',{maximumFractionDigits:2}); else s=n.toLocaleString('en-US',{maximumFractionDigits:4}); return (g?'-$':'$')+s; }
+function fmtNum(n){ if(n>=1e9) return (n/1e9).toFixed(2)+'B'; if(n>=1e6) return (n/1e6).toFixed(2)+'M'; return Math.round(n).toLocaleString('en-US'); }
+function fmtGB(gb){ if(gb>=1000) return (gb/1000).toFixed(1)+' TB'; return Math.round(gb).toLocaleString('en-US')+' GB'; }
+
+function syncFrom(id,v){ document.getElementById(id).value=v; if(id==='users') clearPreset(); updateChip(id); recompute(); }
+function syncTo(id,v){ var r=document.getElementById(id+'_r'); if(r) r.value=v; if(id==='users') clearPreset(); updateChip(id); }
+function updateChip(id){ var v=val(id); var c=document.getElementById(id+'_v'); if(!c) return;
+  if(id==='users'||id==='apiPerUser'||id==='llmPU') c.textContent=fmtNum(v);
+  else if(id==='subPrice') c.textContent='$'+v;
+  else if(id==='haiku'||id==='save'||id==='cacheHit') c.textContent=v+'%'; else c.textContent=v; }
+document.getElementById('haiku_r').addEventListener('input',function(){ document.getElementById('haiku').value=this.value; updateChip('haiku'); recompute(); });
+document.getElementById('save_r').addEventListener('input',function(){ document.getElementById('save').value=this.value; updateChip('save'); recompute(); });
+document.getElementById('cacheHit_r').addEventListener('input',function(){ document.getElementById('cacheHit').value=this.value; updateChip('cacheHit'); recompute(); });
+
+(function(){var st=document.createElement('style');st.textContent='.fieldtag{display:inline-block;margin-left:6px;font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;padding:1px 5px;border-radius:5px;vertical-align:middle;white-space:nowrap}.fieldtag.off{background:#fde2e1;color:#9b1c17}.fieldtag.low{background:#fef3c7;color:#92400e}.fieldtag.note{background:#e6eef7;color:#1e4e79}.row.f-off,.slider-row.f-off{opacity:.6}';document.head.appendChild(st);})();
+var IMPACT_ALWAYS={daysActive:'drives the per-day fields',region:'same cost EU and US',targetMargin:'used by the advisor',churn:'drives LTV',cac:'drives CAC payback'};
+var IMPACT_REASON={addPU:'retention is off',coldDays:'retention is off',deleteDays:'retention is off',stGb:'retention is on, tiered storage used',redisGb:'KV selected, switch cache layer to Upstash',srvCost:'Cloudflare Containers selected',srvHours:'Cloudflare Containers selected',minJob:'no research jobs',gbJob:'no research jobs',proxyGB:'no research jobs',inTok:'LLM excluded from total',outTok:'LLM excluded from total',haiku:'LLM excluded from total',save:'LLM excluded from total',llmPU:'LLM excluded from total',modelHeavy:'LLM excluded from total',modelCheap:'LLM excluded from total'};
+var IMPACT_FIELDS=['apiPerUser','cpuMs','statefulPct','doMs','d1Reads','d1Writes','d1Kb','cacheProvider','cacheHit','cacheReadsPU','redisGb','qjPU','addPU','coldDays','deleteDays','stGb','upPU','dlPU','scrapeCompute','jobsPU','gbJob','proxyGB','minJob','srvCost','srvHours','modelHeavy','modelCheap','llmPU','inTok','outTok','haiku','save','vq','vstored','dims','txPU','nlPU','provider','pushOptIn','pushPU','subPrice','payShare','payFee','users','daysActive','region','targetMargin','churn','cac'];
+function _sig(){var r=compute();var p=[r.total,r.profit,r.netRev];var s=p.concat([r.infra,r.external,r.llm,r.perUser,r.jobs,r.proxyData,r.computeHours,r.r2GbTotal,r.pushSends,r.d1Gb,r.totalReq,r.llmCalls,r.push]);(r.parts||[]).forEach(function(x){s.push(x.v);});return {p:p,s:s};}
+function _mrel(a,b){var m=0;for(var i=0;i<a.length;i++){var d=Math.abs(b[i]-a[i]);if(d>1e-9){var rel=Math.abs(a[i])>1e-9?d/Math.abs(a[i]):1;if(rel>m)m=rel;}}return m;}
+function _setField(id,state,text){var el=document.getElementById(id);if(!el)return;var row=el.closest('.row')||el.closest('.slider-row');if(!row)return;row.classList.remove('f-off');var tag=row.querySelector('.fieldtag');if(state==='ok'){if(tag)tag.parentNode.removeChild(tag);return;}if(state==='off')row.classList.add('f-off');if(!tag){tag=document.createElement('span');tag.className='fieldtag';var host=row.querySelector('.top')||row.querySelector('label')||row;host.appendChild(tag);}tag.className='fieldtag '+(state==='off'?'off':state==='low'?'low':'note');tag.textContent=text;}
+function markImpacts(){var base=_sig();IMPACT_FIELDS.forEach(function(id){if(IMPACT_ALWAYS[id]!==undefined){_setField(id,'note',IMPACT_ALWAYS[id]);return;}var el=document.getElementById(id);if(!el){return;}var isCb=el.type==='checkbox',isSel=el.tagName==='SELECT';var ov=el.value,oc=el.checked,oi=isSel?el.selectedIndex:0;if(isCb){el.checked=!el.checked;}else if(isSel){el.selectedIndex=(el.selectedIndex+1)%el.options.length;}else{var n=parseFloat(ov)||0;el.value=String(n===0?1:n*1.7+3);}var now=_sig();if(isCb){el.checked=oc;}else if(isSel){el.selectedIndex=oi;}else{el.value=ov;}var rp=_mrel(base.p,now.p),rs=_mrel(base.s,now.s);if(rs<1e-9){_setField(id,'off',IMPACT_REASON[id]||'within the free tier at this scale');}else if(rp<0.005){_setField(id,'low',IMPACT_REASON[id]||'minor at this scale');}else{_setField(id,'ok','');}});}
+
+function compute(){
+  var U=val('users'), apiPU=val('apiPerUser'), cpuMs=val('cpuMs'), statefulPct=val('statefulPct')/100, doMs=val('doMs');
+  var reads=val('d1Reads'), writes=val('d1Writes'), d1Kb=val('d1Kb');
+  var cacheHit=val('cacheHit')/100, cacheReadsPU=val('cacheReadsPU'), redisGb=val('redisGb'), cacheProvider=sel('cacheProvider'), qjPU=val('qjPU');
+  var useRet=checked('useRetention'), addPU=val('addPU'), coldDays=val('coldDays'), deleteDays=val('deleteDays'), stGb=val('stGb'), upPU=val('upPU'), dlPU=val('dlPU');
+  var scrapeCompute=sel('scrapeCompute'), jobsPU=val('jobsPU'), gbJob=val('gbJob'), proxyGB=val('proxyGB'), minJob=val('minJob'), srvCost=val('srvCost'), srvHours=val('srvHours');
+  var vq=val('vq'), vstored=val('vstored'), dims=val('dims'), txPU=val('txPU'), nlPU=val('nlPU'), provider=sel('provider');
+  var llmPU=val('llmPU'), inTok=val('inTok'), outTok=val('outTok'), cheapShare=val('haiku')/100, save=val('save')/100;
+  var includeLLM=checked('includeLLM'), pro=checked('pro'), lb=checked('lb');
+  var subPrice=val('subPrice'), payShare=val('payShare')/100, payFee=val('payFee')/100;
+  var pushOptIn=val('pushOptIn')/100, pushPU=val('pushPU');
+
+  var totalReq=U*apiPU;
+  var wBase=5, wReq=Math.max(0,totalReq-10e6)/1e6*0.30, wCpu=Math.max(0,totalReq*cpuMs-30e6)/1e6*0.02; var workers=wBase+wReq+wCpu;
+  var doReq=totalReq*statefulPct, doR=Math.max(0,doReq-1e6)/1e6*0.15, doD=Math.max(0,doReq*(doMs/1000)*(128/1024)-400000)/1e6*12.5; var dobj=doR+doD;
+  var d1R=Math.max(0,totalReq*reads*(1-cacheHit)-25e9)/1e6*0.001, d1W=Math.max(0,totalReq*writes-50e6)/1e6*1.0, d1Gb=U*d1Kb/1e6, d1S=Math.max(0,d1Gb-5)*0.75; var d1=d1R+d1W+d1S;
+  var r2Store,r2GbTotal;
+  if(useRet){ var mh=coldDays/30, mc=Math.max(0,(deleteDays-coldDays)/30), hotGb=U*addPU*mh, coldGb=U*addPU*mc; r2Store=Math.max(0,hotGb-10)*0.015+coldGb*0.01; r2GbTotal=hotGb+coldGb; }
+  else { r2Store=Math.max(0,U*stGb-10)*0.015; r2GbTotal=U*stGb; }
+  var r2A=Math.max(0,U*upPU-1e6)/1e6*4.5, r2B=Math.max(0,U*dlPU-10e6)/1e6*0.36; var r2=r2Store+r2A+r2B;
+  var cacheReads=U*cacheReadsPU, cache; if(cacheProvider==='kv') cache=Math.max(0,cacheReads-10e6)/1e6*0.5; else cache=cacheReads/100000*0.2+redisGb*0.25;
+  var queues=Math.max(0,U*qjPU-1e6)/1e6*0.4;
+  var vQ=Math.max(0,U*vq*dims-50e6)/1e6*0.01, vS=Math.max(0,U*vstored*dims-10e6)/100e6*0.05; var vec=vQ+vS;
+  var emails=U*(txPU+nlPU), email; if(provider==='ses') email=emails/1000*0.10; else email=Math.max(0,emails-3000)/1000*0.35;
+  var secWaf=pro?20:0, secLb=lb?5:0, security=secWaf+secLb;
+  var jobs=U*jobsPU, proxyData=jobs*gbJob, proxy=proxyData*proxyGB*(1-cacheHit), computeHours=jobs*minJob/60, serversNeeded=0, scrapeC;
+  if(scrapeCompute==='hetzner'){ serversNeeded=srvHours>0?Math.ceil(computeHours/srvHours):0; scrapeC=serversNeeded*srvCost; }
+  else { var vs=computeHours*3600; scrapeC=Math.max(0,vs-22500)*0.00002+Math.max(0,vs-90000)*0.0000025; }
+  var external=proxy+scrapeC;
+  var mH=MODELS[sel('modelHeavy')], mC=MODELS[sel('modelCheap')], llmCalls=U*llmPU, cheapCalls=llmCalls*cheapShare, heavyCalls=llmCalls*(1-cheapShare);
+  var cheapCost=cheapCalls*(inTok/1e6*mC.i+outTok/1e6*mC.o), heavyCost=heavyCalls*(inTok/1e6*mH.i+outTok/1e6*mH.o);
+  var llm=(cheapCost+heavyCost)*(1-save)*(1-cacheHit);
+  var cheapAdj=cheapCost*(1-save)*(1-cacheHit), heavyAdj=heavyCost*(1-save)*(1-cacheHit);
+
+  var pushSubs=U*pushOptIn, pushSends=pushSubs*pushPU;
+  var pushReq=pushSends/1e6*0.30, pushQ=pushSends/1e6*0.40, pushStore=Math.max(0,pushSubs*0.5/1e6-1)*0.50, push=pushReq+pushQ+pushStore;
+  var infra=workers+dobj+d1+r2+cache+queues+vec+email+security+push;
+  var total=infra+external+(includeLLM?llm:0);
+  var grossRev=U*subPrice*payShare, netRev=grossRev*(1-payFee), profit=netRev-total, margin=netRev>0?profit/netRev*100:0, perUser=U>0?total/U:0;
+
+  return {U:U,totalReq:totalReq,llmCalls:llmCalls,d1Gb:d1Gb,proxy:proxy,jobs:jobs,proxyData:proxyData,computeHours:computeHours,r2GbTotal:r2GbTotal,pushSends:pushSends,push:push,
+    parts:[
+      {k:'Workers',v:workers,sub:[['Base fee',wBase],['Requests',wReq],['CPU',wCpu]]},
+      {k:'Durable Objects',v:dobj,sub:[['Requests',doR],['Active duration',doD]]},
+      {k:'D1 database',v:d1,sub:[['Reads',d1R],['Writes',d1W],['Storage',d1S]]},
+      {k:'R2 files',v:r2,sub:[['Storage',r2Store],['Uploads',r2A],['Downloads',r2B]]},
+      {k:'Cache',v:cache,sub:[[cacheProvider==='kv'?'KV reads':'Redis commands + storage',cache]]},
+      {k:'Queues',v:queues,sub:[['Queue ops',queues]]},
+      {k:'Vectorize',v:vec,sub:[['Queries',vQ],['Stored',vS]]},
+      {k:'Email',v:email,sub:[['Sends',email]]},
+      {k:'Security',v:security,sub:[['WAF',secWaf],['Load balancer',secLb]]},
+      {k:'Push and pop-ups',v:push,sub:[['Send fan-out '+fmtNum(pushSends),pushReq],['Queue fan-out',pushQ],['Subscription storage',pushStore]]},
+      {k:'Residential proxy',v:proxy,amber:true,sub:[['Proxy data '+fmtGB(proxyData),proxy]]},
+      {k:(scrapeCompute==='hetzner'?'Scraping (Hetzner '+serversNeeded+' srv)':'Scraping (CF Containers)'),v:scrapeC,amber:true,sub:[['Compute '+fmtNum(computeHours)+' hrs',scrapeC]]}
+    ],
+    infra:infra,external:external,llm:llm,total:total,netRev:netRev,grossRev:grossRev,profit:profit,margin:margin,perUser:perUser,includeLLM:includeLLM,
+    llmSub:[[mC.n,cheapAdj],[mH.n,heavyAdj]]};
+}
+
+function recompute(){
+  var r=compute();
+  document.getElementById('r_users').textContent=fmtNum(r.U);
+  document.getElementById('r_total').textContent=fmtMoney(r.total);
+  document.getElementById('r_rev').textContent=fmtMoney(r.netRev);
+  var pf=document.getElementById('r_profit'); pf.textContent=fmtMoney(r.profit); pf.className='v '+(r.profit>=0?'green':'red');
+  var mg=document.getElementById('r_margin'); mg.textContent=r.margin.toFixed(1)+'%'; mg.className='v '+(r.margin>=50?'green':(r.margin>=0?'':'red'));
+  document.getElementById('r_peruser').textContent=fmtMoney(r.perUser);
+  document.getElementById('r_annual').textContent=fmtMoney(r.profit*12);
+  document.getElementById('r_infra').textContent=fmtMoney(r.infra);
+  document.getElementById('r_ext').textContent=fmtMoney(r.external);
+  document.getElementById('r_llm').textContent=fmtMoney(r.llm);
+  var da=val('daysActive')||1;
+  var apd=document.getElementById('apiPerDay'); if(apd && document.activeElement!==apd) apd.value=Math.round(val('apiPerUser')/da);
+  var lpd=document.getElementById('llmPerDay'); if(lpd && document.activeElement!==lpd) lpd.value=Math.round(val('llmPU')/da);
+  var ppd=document.getElementById('pushPerDay'); if(ppd && document.activeElement!==ppd) ppd.value=Math.round(val('pushPU')/da);
+
+  var rows=r.parts.slice(); if(r.includeLLM) rows.push({k:'LLM / AI',v:r.llm,llm:true,sub:r.llmSub});
+  var maxv=0.0001, tot=0; rows.forEach(function(p){ if(p.v>maxv) maxv=p.v; tot+=Math.max(0,p.v); });
+  rows.sort(function(a,b){ return b.v-a.v; });
+  var html='';
+  rows.forEach(function(p){ if(p.v<=0) return; var w=Math.min(100,p.v/maxv*100), pct=tot>0?(p.v/tot*100).toFixed(1):0; var cls=p.llm?' llm':(p.amber?' amber':'');
+    var subhtml=''; (p.sub||[]).forEach(function(s){ if(s[1]===undefined) return; subhtml+='<div class="srow"><span>'+s[0]+'</span><b>'+fmtMoney(s[1])+'</b></div>'; });
+    html+='<div class="b-row" onclick="bclick(this,\''+tgtFor(p.k)+'\')"><div class="b-head"><span class="nm">'+p.k+'</span><span class="amt"><b>'+fmtMoney(p.v)+'</b><em>'+pct+'%</em></span></div><div class="bar'+cls+'"><div style="width:'+w+'%"></div></div><div class="b-sub">'+subhtml+'</div></div>';
+  });
+  document.getElementById('breakdown').innerHTML=html;
+
+  document.getElementById('o_jobs').textContent=fmtNum(r.jobs);
+  document.getElementById('o_data').textContent=fmtGB(r.proxyData);
+  document.getElementById('o_hours').textContent=fmtNum(r.computeHours)+' hrs';
+  document.getElementById('o_store').textContent=fmtGB(r.r2GbTotal);
+  document.getElementById('o_push').textContent=fmtNum(r.pushSends);
+  document.getElementById('pushinfo').innerHTML='<div class="it"><span>Push sends / mo</span><b>'+fmtNum(r.pushSends)+'</b></div><div class="it"><span>Web Push delivery</span><b class="free">Free via FCM, APNs, autopush</b></div><div class="it"><span>Cloudflare cost</span><b>'+fmtMoney(r.push)+' Worker fan-out + queue</b></div>';
+
+  var region=sel('region'), resid=region==='eu'?'R2 EU, SES Frankfurt, Hetzner Germany, Upstash Frankfurt':'R2 US, SES us-east-1, Hetzner US';
+  document.getElementById('secinfo').innerHTML='<div class="it"><span>DDoS protection</span><b class="free">Free, unmetered</b></div><div class="it"><span>SSL / CDN / basic WAF</span><b class="free">Free</b></div><div class="it"><span>Cloudflare core pricing</span><b>Same EU and US</b></div><div class="it"><span>Data residency</span><b>'+resid+'</b></div>';
+
+  var w=[];
+  if(r.d1Gb>1000) w.push(['warn','D1 storage '+r.d1Gb.toFixed(0)+'GB past the 1TB cap. Move to Postgres + Hyperdrive.']);
+  else if(r.d1Gb>10) w.push(['warn','D1 storage '+r.d1Gb.toFixed(1)+'GB past the 10GB single-DB cap. Shard into '+Math.ceil(r.d1Gb/10)+' databases.']);
+  if(r.total>0 && r.proxy/r.total>0.3) w.push(['warn','Residential proxy is '+(r.proxy/r.total*100).toFixed(0)+'% of total. Raise cache hit, cheaper proxy, or charge per job.']);
+  if(r.includeLLM && r.totalReq>0){ var ra=r.llmCalls/r.totalReq; if(ra>0.5) w.push(['warn','LLM fires on '+(ra*100).toFixed(0)+'% of API calls. Route most through a no-LLM path.']); }
+  if(r.netRev>0 && r.margin<50) w.push(['warn','Margin '+r.margin.toFixed(0)+'%. Raise price, cut included usage, or cut proxy/LLM via caching.']);
+  if(r.profit<0 && r.netRev>0) w.push(['warn','Losing money. The subscription does not cover cost.']);
+  if(w.length===0) w.push(['ok','Healthy. Profitable at this configuration.']);
+  document.getElementById('warnings').innerHTML=w.map(function(x){ return '<div class="'+x[0]+'">'+x[1]+'</div>'; }).join('');
+  buildAdvisor(r);
+  if(document.getElementById('mk_floor')) renderMarket();
+  var churn=val('churn')/100, cac=val('cac'), pu=r.U*(val('payShare')/100);
+  var arpu=val('subPrice')*(1-val('payFee')/100), cpp=pu>0?r.total/pu:0, contrib=arpu-cpp, life=churn>0?1/churn:0, ltv=contrib*life, ratio=cac>0?ltv/cac:0, pay=contrib>0?cac/contrib:0;
+  document.getElementById('vc_arpu').textContent=fmtMoney(arpu);
+  var vcc=document.getElementById('vc_contrib'); vcc.textContent=fmtMoney(contrib); vcc.className='v '+(contrib>=0?'green':'red');
+  document.getElementById('vc_ltv').textContent=fmtMoney(ltv);
+  var vcr=document.getElementById('vc_ratio'); vcr.textContent=(ratio>0?ratio.toFixed(1):'0')+'x'; vcr.className='v '+(ratio>=3?'green':(ratio>0?'':'red'));
+  var vcp=document.getElementById('vc_payback'); vcp.textContent=(contrib>0?pay.toFixed(1)+' mo':'never'); vcp.className='v '+(contrib>0&&pay<=12?'green':'red');
+  document.getElementById('vc_life').textContent=(life>0?life.toFixed(0)+' mo':'inf');
+  var bmm=document.getElementById('bm_margin'); if(bmm){ bmm.textContent=r.margin.toFixed(0)+'%'; bmm.style.color=r.margin>=60?'#047857':'#b91c1c'; }
+  var bmr=document.getElementById('bm_ratio'); if(bmr){ bmr.textContent=(ratio>0?ratio.toFixed(1):'0')+'x'; bmr.style.color=ratio>=3?'#047857':'#b91c1c'; }
+  var bmp=document.getElementById('bm_pay'); if(bmp){ bmp.textContent=(contrib>0?pay.toFixed(1)+' mo':'never'); bmp.style.color=(contrib>0&&pay<=12)?'#047857':'#b91c1c'; }
+  var bmc=document.getElementById('bm_churn'); if(bmc){ var chv=val('churn'); bmc.textContent=chv+'%'; bmc.style.color=chv<=5?'#047857':'#b91c1c'; }
+  var payU=r.U*(val('payShare')/100), feeM=1-val('payFee')/100, tm=val('targetMargin')/100;
+  var be=(payU>0&&feeM>0)?r.total/(payU*feeM):0, tgtP=(1-tm)>0?be/(1-tm):be*10, rec=nicePrice(tgtP); window._rec=rec;
+  var cur=val('subPrice');
+  document.getElementById('pr_cur').textContent=fmtMoney(cur);
+  document.getElementById('pr_be').textContent=fmtMoney(be);
+  document.getElementById('pr_tgt').textContent=fmtMoney(tgtP);
+  document.getElementById('pr_rec').textContent=fmtMoney(rec);
+  var st=document.getElementById('pr_status');
+  if(cur<be){ st.className='pr-status bad'; st.textContent='Below cost. You lose money on every paying user. Raise to at least '+fmtMoney(be)+'.'; }
+  else if(cur<tgtP){ st.className='pr-status warn'; st.textContent='Profitable but under your '+(tm*100).toFixed(0)+'% target. Recommended is '+fmtMoney(rec)+'.'; }
+  else { st.className='pr-status ok'; st.textContent='At or above your '+(tm*100).toFixed(0)+'% target. Healthy. Floor is '+fmtMoney(be)+'.'; }
+  markImpacts();
+}
+
+function nicePrice(x){ var pts=[5,9,15,19,25,29,39,49,69,79,99,129,149,199,249,299,399,499,699,999,1499,1999]; for(var i=0;i<pts.length;i++){ if(pts[i]>=x) return pts[i]; } return Math.ceil(x/500)*500-1; }
+function useRecommended(){ if(window._rec) applyFix('subPrice',window._rec,'price set to the recommended '+fmtMoney(window._rec)+' per user'); }
+function tgtFor(k){ if(k.indexOf('Workers')===0) return 'cpuMs'; if(k.indexOf('Durable')===0) return 'statefulPct'; if(k.indexOf('D1')===0) return 'd1Reads'; if(k.indexOf('R2')===0) return 'stGb'; if(k.indexOf('Cache')===0) return 'cacheReadsPU'; if(k.indexOf('Queues')===0) return 'qjPU'; if(k.indexOf('Vectorize')===0) return 'vq'; if(k.indexOf('Email')===0) return 'txPU'; if(k.indexOf('Push')===0) return 'pushPU'; if(k.indexOf('Security')===0) return 'pro'; if(k.indexOf('Residential')===0) return 'proxyGB'; if(k.indexOf('Scraping')===0) return 'jobsPU'; if(k.indexOf('LLM')===0) return 'llmPU'; return ''; }
+function flashEl(id){ var e=document.getElementById(id); if(!e) return; var c=e.closest('.card'); if(c){ c.classList.add('flash'); setTimeout(function(){ c.classList.remove('flash'); },1400); } }
+function jumpTo(id){ var e=document.getElementById(id); if(!e) return; var c=e.closest('.card'); if(c){ c.scrollIntoView({behavior:'smooth',block:'center'}); flashEl(id); } }
+function bclick(row,tgt){ row.classList.toggle('open'); if(tgt) jumpTo(tgt); }
+function toast(m){ var t=document.getElementById('toast'); if(!t) return; t.textContent=m; t.classList.add('show'); clearTimeout(window._tt); window._tt=setTimeout(function(){ t.classList.remove('show'); },2800); }
+function applyFix(id,value,msg){ var e=document.getElementById(id); if(e){ if(e.type==='checkbox') e.checked=value; else setvFull(id,value); } jumpTo(id); toast('Applied. '+msg); recompute(); }
+function tryMargin(ch){ var sv=[]; for(var i=0;i<ch.length;i++){ var el=document.getElementById(ch[i][0]); sv.push([el,el.value]); el.value=ch[i][1]; } var m=compute().margin; for(var j=0;j<sv.length;j++){ sv[j][0].value=sv[j][1]; } return m; }
+function buildAdvisor(r){
+  var el=document.getElementById('advisor'); var target=val('targetMargin');
+  var mb=marketBand(), pprice=val('subPrice'), posWarn=(mb.any&&pprice>mb.premium)?'<div class="adv-bad">Priced above the market ceiling '+fmtMoney(mb.premium)+'. Buyers may not purchase, cheaper comparable tools exist. Consider lowering toward '+fmtMoney(mb.median)+'.</div>':'';
+  if(r.netRev<=0){ el.innerHTML='<div class="adv-ok">Set a subscription price to get profitability advice.</div>'; return; }
+  if(r.margin>=target){ el.innerHTML=posWarn+'<div class="adv-ok">Profitable. '+r.margin.toFixed(0)+'% margin, '+fmtMoney(r.profit*12)+' annual profit, above your '+target+'% target.</div>'; return; }
+  var drivers=r.parts.slice(); if(r.includeLLM) drivers.push({k:'LLM / AI',v:r.llm}); drivers.sort(function(a,b){ return b.v-a.v; });
+  var top=drivers[0];
+  var html='<div class="adv-bad">Not at target yet. '+r.margin.toFixed(0)+'% margin'+(r.profit<0?', losing money.':'.')+' Fixes below, biggest impact first.</div>';
+  html+='<div class="adv-driver">Biggest cost. '+top.k+' at '+fmtMoney(top.v)+', '+(r.total>0?(top.v/r.total*100).toFixed(0):0)+'% of total.</div>';
+  var U=val('users'), denom=U*(val('payShare')/100)*(1-val('payFee')/100), fixes=[];
+  if(denom>0){ var pT=r.total/((1-target/100)*denom); fixes.push({t:'Raise price to '+fmtMoney(pT)+' per user',m:target,a:"applyFix('subPrice',"+(Math.ceil(pT*100)/100)+",'price raised to "+fmtMoney(pT)+" per user')"}); }
+  if(r.proxy>r.total*0.12){
+    fixes.push({t:'Raise cache hit to 60% (cuts proxy and LLM)',m:tryMargin([['cacheHit',60]]),a:"applyFix('cacheHit',60,'cache hit set to 60 percent, cuts proxy and LLM')"});
+    fixes.push({t:'Cheaper proxy, PacketStream $1 per GB',m:tryMargin([['proxyGB',1]]),a:"applyFix('proxyGB',1,'proxy switched to 1 dollar per GB')"});
+    fixes.push({t:'Halve research jobs per user',m:tryMargin([['jobsPU',val('jobsPU')/2]]),a:"applyFix('jobsPU',"+(val('jobsPU')/2)+",'research jobs per user halved')"});
+  }
+  if(r.includeLLM && r.llm>r.total*0.12){
+    fixes.push({t:'AI Gateway savings to 60%',m:tryMargin([['save',60]]),a:"applyFix('save',60,'AI Gateway savings set to 60 percent')"});
+    fixes.push({t:'Route 90% to the cheap model',m:tryMargin([['haiku',90]]),a:"applyFix('haiku',90,'90 percent of calls routed to the cheap model')"});
+    fixes.push({t:'Cheaper heavy model, DeepSeek V4 Pro',m:tryMargin([['modelHeavy','deepseekv4pro']]),a:"applyFix('modelHeavy','deepseekv4pro','heavy model set to DeepSeek V4 Pro')"});
+  }
+  if(!checked('useRetention') && r.r2GbTotal>5000){ fixes.push({t:'Turn on retention to cap storage',m:null,a:"applyFix('useRetention',true,'retention turned on to cap storage')"}); }
+  if(r.push>r.total*0.1 && val('pushPU')>2){ fixes.push({t:'Halve notifications per subscriber',m:tryMargin([['pushPU',val('pushPU')/2]]),a:"applyFix('pushPU',"+(val('pushPU')/2)+",'notifications per subscriber halved')"}); }
+  fixes.sort(function(a,b){ return (b.m||0)-(a.m||0); }); fixes=fixes.slice(0,6);
+  fixes.forEach(function(fx){ var imp=(fx.m!=null && fx.m>r.margin)?' <em>to '+fx.m.toFixed(0)+'%</em>':''; html+='<div class="adv-fix"><div class="adv-t">'+fx.t+imp+'</div><button onclick="'+fx.a+'">Apply</button></div>'; });
+  el.innerHTML=posWarn+html;
+}
+function clearPreset(){ document.querySelectorAll('.presets .pbtn[data-u]').forEach(function(b){ b.classList.remove('active'); }); }
+function preset(n,el){ document.getElementById('users').value=n; document.getElementById('users_r').value=Math.min(n,100000000); clearPreset(); if(el) el.classList.add('active'); updateChip('users'); recompute(); }
+function setvFull(id,v){ var el=document.getElementById(id); if(el) el.value=v; var r=document.getElementById(id+'_r'); if(r) r.value=v; updateChip(id); }
+var PROFILES={
+ light:{apiPerUser:1000,cpuMs:3,statefulPct:2,doMs:20,d1Reads:1,d1Writes:0.1,d1Kb:2,cacheReadsPU:50,stGb:0.2,upPU:2,dlPU:20,jobsPU:0,llmPU:5,txPU:3,nlPU:1,vq:10,vstored:5,pushOptIn:10,pushPU:2},
+ typical:{apiPerUser:10000,cpuMs:12,statefulPct:10,doMs:50,d1Reads:3,d1Writes:0.3,d1Kb:20,cacheReadsPU:200,stGb:1,upPU:10,dlPU:100,jobsPU:2,llmPU:50,txPU:10,nlPU:4,vq:100,vstored:50,pushOptIn:30,pushPU:8},
+ heavy:{apiPerUser:50000,cpuMs:50,statefulPct:30,doMs:200,d1Reads:10,d1Writes:1,d1Kb:200,cacheReadsPU:500,stGb:5,upPU:50,dlPU:500,jobsPU:10,llmPU:200,txPU:20,nlPU:6,vq:500,vstored:200,pushOptIn:40,pushPU:20},
+ max:{apiPerUser:200000,cpuMs:150,statefulPct:60,doMs:800,d1Reads:30,d1Writes:3,d1Kb:1000,cacheReadsPU:2000,stGb:20,upPU:200,dlPU:2000,jobsPU:30,llmPU:500,txPU:30,nlPU:10,vq:2000,vstored:1000,pushOptIn:50,pushPU:40},
+ extreme:{apiPerUser:1000000,cpuMs:150,statefulPct:60,doMs:800,d1Reads:30,d1Writes:3,d1Kb:1000,cacheReadsPU:5000,stGb:50,upPU:500,dlPU:5000,jobsPU:50,gbJob:0.05,llmPU:1000,txPU:50,nlPU:20,vq:5000,vstored:2000,pushOptIn:60,pushPU:60}
+};
+function applyProfile(p,el){ var o=PROFILES[p]||PROFILES.typical; for(var k in o){ setvFull(k,o[k]); } document.querySelectorAll('.profbtn').forEach(function(b){ b.classList.remove('active'); }); if(el) el.classList.add('active'); recompute(); }
+function setFromDay(monthlyId,dayId){ var v=Math.round(val(dayId)*(val('daysActive')||1)); setvFull(monthlyId,v); recompute(); }
+var defaults={users:100000,apiPerUser:10000,cpuMs:8,statefulPct:10,doMs:50,d1Reads:3,d1Writes:0.3,d1Kb:10,cacheHit:30,cacheReadsPU:200,redisGb:1,qjPU:4,addPU:0.1,coldDays:30,deleteDays:365,stGb:1,upPU:10,dlPU:100,jobsPU:2,gbJob:0.02,proxyGB:4,minJob:3,srvCost:48,srvHours:500,vq:100,vstored:50,dims:768,txPU:10,nlPU:4,llmPU:50,inTok:2000,outTok:1000,haiku:70,save:40,subPrice:10,payShare:100,payFee:3,daysActive:31,targetMargin:70,churn:5,cac:50,pushOptIn:30,pushPU:8};
+function resetAll(){ for(var k in defaults){ var el=document.getElementById(k); if(el) el.value=defaults[k]; var r=document.getElementById(k+'_r'); if(r) r.value=defaults[k]; }
+  document.getElementById('provider').value='ses'; document.getElementById('cacheProvider').value='kv'; document.getElementById('scrapeCompute').value='hetzner'; document.getElementById('region').value='eu';
+  document.getElementById('modelHeavy').value='sonnet46'; document.getElementById('modelCheap').value='haiku45';
+  document.getElementById('includeLLM').checked=true; document.getElementById('useRetention').checked=false; document.getElementById('pro').checked=false; document.getElementById('lb').checked=false;
+  clearPreset(); var b=document.querySelector('.pbtn[data-u="100000"]'); if(b) b.classList.add('active');
+  ['users','apiPerUser','stGb','jobsPU','llmPU','subPrice','haiku','save','cacheHit'].forEach(updateChip); recompute(); }
+
+function snapshot(){ var o={}; document.querySelectorAll('.controls input,.controls select').forEach(function(e){ if(!e.id) return; o[e.id]=(e.type==='checkbox')?e.checked:e.value; }); return o; }
+function applySnap(o){ for(var k in o){ var e=document.getElementById(k); if(!e) continue; if(e.type==='checkbox') e.checked=o[k]; else e.value=o[k]; } ['users','apiPerUser','stGb','jobsPU','llmPU','subPrice','haiku','save','cacheHit'].forEach(updateChip); recompute(); }
+function loadScen(){ try{ return JSON.parse(localStorage.getItem('cfcalc_scen')||'[]'); }catch(e){ return []; } }
+function saveScen(){ var nm=document.getElementById('scenName').value||('Scenario '+(loadScen().length+1)); var r=compute(); var a=loadScen(); a.push({name:nm,data:snapshot(),users:r.U,total:r.total,rev:r.netRev,profit:r.profit,margin:r.margin}); localStorage.setItem('cfcalc_scen',JSON.stringify(a)); document.getElementById('scenName').value=''; renderScen();
+renderReady();
+renderMarket(); }
+function delScen(i){ var a=loadScen(); a.splice(i,1); localStorage.setItem('cfcalc_scen',JSON.stringify(a)); renderScen(); }
+function loadScenI(i){ var a=loadScen(); if(a[i]) applySnap(a[i].data); }
+function renderScen(){ var a=loadScen(), el=document.getElementById('scenTable'); if(!el) return; if(!a.length){ el.innerHTML='<div style="font-size:12.5px;color:#a8a29e">No saved scenarios. Configure, name it, Save to compare side by side.</div>'; return; }
+  var h='<table class="scen"><tr><th>Name</th><th>Users</th><th>Cost</th><th>Revenue</th><th>Profit</th><th>Margin</th><th></th></tr>';
+  a.forEach(function(x,i){ h+='<tr><td>'+x.name+'</td><td>'+fmtNum(x.users)+'</td><td>'+fmtMoney(x.total)+'</td><td class="green">'+fmtMoney(x.rev)+'</td><td class="'+(x.profit>=0?'green':'red')+'">'+fmtMoney(x.profit)+'</td><td>'+x.margin.toFixed(0)+'%</td><td><button onclick="loadScenI('+i+')">Load</button> <button class="del" onclick="delScen('+i+')">x</button></td></tr>'; });
+  el.innerHTML=h+'</table>'; }
+var READY=[
+ {a:'Business',t:'Distribution and GTM channel',p:'MUST',what:'How customers actually find the product.',why:'A strong product with no distribution earns nothing. This is the weakest link.',how:'Win one channel first. Ship in public daily, list on an MCP directory, run dev.to and LinkedIn content, build an SEO landing page per use case.'},
+ {a:'Business',t:'ICP and positioning',p:'SHOULD',what:'The one customer type and the wedge.',why:'Vague targeting wastes the whole funnel.',how:'Name the exact buyer and the single job they hire you for. Put it above the fold on the landing page.'},
+ {a:'Business',t:'Competitor price benchmark',p:'SHOULD',what:'What comparable API and AI tools charge.',why:'Pricing in a vacuum misses the market anchor.',how:'Benchmark Apify, Clay, Firecrawl and similar. Set your tiers relative to them, not from cost alone.'},
+ {a:'Business',t:'Billing operations',p:'SHOULD',what:'Metered Stripe, trials, dunning, refunds.',why:'The plumbing behind the numbers in the calculator.',how:'Stripe usage based billing, a 14 day trial, automatic dunning on failed cards, a clear refund policy.'},
+ {a:'Business',t:'Free and trial design',p:'DONE',what:'Generous on Cloudflare, capped on LLM and proxy.',why:'Stops the free herd from costing money.',how:'Forever free with a cheap model and tiny scraping, plus a 14 day full trial. Already designed in the model doc.'},
+ {a:'Technical',t:'Usage metering and quota enforcement',p:'MUST',what:'Count each tenant calls and actions, enforce caps.',why:'The make or break piece. You cannot bill or cap without it.',how:'A Durable Object per tenant holds the live counter, checks the plan cap on every call, flushes to D1 and Stripe. See the Build Plan tab.'},
+ {a:'Technical',t:'Auth and customer API keys',p:'MUST',what:'Login plus issuing and rotating API keys.',why:'It is an API product, keys are the front door.',how:'Better Auth for users, a keys table in D1, store only hashed keys, scope per plan, a rotation endpoint.'},
+ {a:'Technical',t:'Observability and per tenant cost',p:'MUST',what:'Logs, errors, and what each customer costs you.',why:'You must see margin per customer, not only in aggregate.',how:'Workers Analytics Engine plus Sentry, tag every request with the tenant id, roll cost up per tenant nightly.'},
+ {a:'Technical',t:'Rate limiting per key',p:'SHOULD',what:'Cap requests per second per customer.',why:'Protects the platform and enforces fairness.',how:'A rate limit Durable Object or Upstash Redis, sliding window per key.'},
+ {a:'Technical',t:'Webhook safety and idempotency',p:'SHOULD',what:'Verify signatures and never double charge.',why:'Money correctness, your own review rules require it.',how:'Verify the Stripe signature, store processed event ids, make every billing write idempotent.'},
+ {a:'Technical',t:'Scraping resilience',p:'SHOULD',what:'Anti bot handling and proxy rotation.',why:'The research engine must not break on a block.',how:'Rotate residential proxies, retry with backoff, a stealth browser on Hetzner, cache results to avoid re fetching.'},
+ {a:'Technical',t:'Secrets management',p:'SHOULD',what:'Safe storage of provider keys.',why:'A leaked key is a breach and a bill.',how:'Cloudflare secrets and environment bindings, never in code, rotate on a schedule.'},
+ {a:'Architecture',t:'Metering Durable Object per tenant',p:'MUST',what:'The live usage counter and cap, one per customer.',why:'The bridge from the cost model to a real invoice.',how:'One DO per tenant, increment on call, flush to D1 and Stripe. Detailed in the Build Plan tab.'},
+ {a:'Architecture',t:'Multi tenant D1 sharding',p:'SHOULD',what:'Split data across databases as it grows.',why:'D1 caps a single database at 10 GB.',how:'Shard by tenant or by a hash of the tenant id, route in the Worker.'},
+ {a:'Architecture',t:'Cheap path versus AI path routing',p:'SHOULD',what:'Most calls answered without an LLM.',why:'An LLM on every call is the bankruptcy row.',how:'Serve cached and vector answers on the cheap path, send only real reasoning to the LLM, target ninety percent cheap.'},
+ {a:'Architecture',t:'API developer experience',p:'SHOULD',what:'Docs, an SDK, an OpenAPI spec.',why:'An API lives or dies on how fast a developer gets a first win.',how:'Publish an OpenAPI spec, a typed SDK, copy paste quickstarts, a status page.'},
+ {a:'Architecture',t:'Caching and queue layer',p:'DONE',what:'KV and Cache API for cache, Queues for async.',why:'The performance and cost backbone.',how:'Decided. KV plus Cache API, Cloudflare Queues for heavy work, Redis only for rate limit and locks.'},
+ {a:'Architecture',t:'Retention and lifecycle',p:'DONE',what:'Hot to cold to archive by age.',why:'Caps storage that otherwise grows forever.',how:'Decided. Hot 30 days, cold to one year, archive after, with R2 lifecycle rules.'},
+ {a:'Architecture',t:'Backups and disaster recovery',p:'LATER',what:'Restore points for the database.',why:'Data loss is fatal once you have customers.',how:'Turn on D1 Time Travel, periodic R2 snapshots, document the restore steps before launch.'},
+ {a:'Compliance',t:'Scraping legality decision',p:'MUST',what:'A conscious call on what you scrape and how.',why:'Residential proxy scraping carries terms of service and legal risk.',how:'Decide the sources, respect robots and terms where required, prefer official APIs where they exist, document the position.'},
+ {a:'Compliance',t:'GDPR, DPA, privacy policy, terms',p:'MUST',what:'The legal documents and data agreements.',why:'You operate in the EU, these are required before launch.',how:'Publish a privacy policy and terms, sign DPAs with subprocessors, keep data in EU regions.'},
+ {a:'Compliance',t:'PII handling and data subject requests',p:'SHOULD',what:'Export and delete a customer on request.',why:'A GDPR right, and good hygiene.',how:'Per tenant data isolation, an export endpoint, a delete that purges D1 and R2 for that tenant.'}
+];
+function loadReady(){ try{ return JSON.parse(localStorage.getItem('cfcalc_ready')||'{}'); }catch(e){ return {}; } }
+function toggleReady(i,v){ var d=loadReady(); d[i]=v; localStorage.setItem('cfcalc_ready',JSON.stringify(d)); renderReady(); }
+function renderReady(){ var done=loadReady(), el=document.getElementById('readyList'); if(!el) return;
+  var total=READY.length, ck=0; for(var x=0;x<total;x++){ if(done[x]) ck++; }
+  var h='<div class="ready-prog"><div class="ready-bar"><div style="width:'+(total?ck/total*100:0)+'%"></div></div><span>'+ck+' of '+total+' addressed</span></div>';
+  ['Business','Technical','Architecture','Compliance'].forEach(function(a){ h+='<h3 class="ready-area">'+a+'</h3>';
+    READY.forEach(function(it,i){ if(it.a!==a) return; var pc=it.p==='MUST'?'must':(it.p==='SHOULD'?'should':(it.p==='LATER'?'later':'done'));
+      h+='<div class="ready-item'+(done[i]?' checked':'')+'"><div class="ready-head"><label class="ready-cb"><input type="checkbox" '+(done[i]?'checked':'')+' onchange="toggleReady('+i+',this.checked)"></label><span class="ready-t">'+it.t+'</span><span class="ready-p '+pc+'">'+it.p+'</span></div><div class="ready-body"><div class="rb"><b>What.</b> '+it.what+'</div><div class="rb"><b>Why.</b> '+it.why+'</div><div class="rb"><b>How on this stack.</b> '+it.how+'</div></div></div>';
+    });
+  });
+  el.innerHTML=h;
+}
+document.addEventListener('click',function(e){ if(!e.target||!e.target.closest) return; var hd=e.target.closest('.ready-head'); if(hd && !e.target.closest('.ready-cb')){ hd.parentNode.classList.toggle('open'); } });
+function showTab(id,btn){ document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('active'); }); var pn=document.getElementById('panel-'+id); if(pn) pn.classList.add('active'); document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); }); if(btn) btn.classList.add('active'); window.scrollTo(0,0); }
+function marketBand(){ var caps=[['mk_api',39,99,299],['mk_ai',29,99,499],['mk_scrape',49,149,749],['mk_enrich',149,495,800],['mk_files',19,49,149],['mk_vector',0,29,99],['mk_eu',0,0,0]]; var e=0,m=0,p=0,any=false; caps.forEach(function(c){ var el=document.getElementById(c[0]); if(el&&el.checked){ any=true; if(c[1]>e)e=c[1]; if(c[2]>m)m=c[2]; if(c[3]>p)p=c[3]; } }); return {entry:e,median:m,premium:p,any:any}; }
+function renderMarket(){
+  var b=marketBand();
+  var r=compute(), payU=r.U*(val('payShare')/100), be=(payU>0)?r.total/(payU*(1-val('payFee')/100)):0;
+  var sugg=nicePrice(Math.max(b.entry,be)); window._mkt=sugg;
+  var f=document.getElementById('mk_floor'); if(!f) return;
+  f.textContent=fmtMoney(be);
+  document.getElementById('mk_entry').textContent=b.any?fmtMoney(b.entry):'-';
+  document.getElementById('mk_median').textContent=b.any?fmtMoney(b.median):'-';
+  document.getElementById('mk_sugg').textContent=fmtMoney(sugg);
+  var n=document.getElementById('mk_note'), mp=document.getElementById('mk_pos');
+  if(!b.any){ n.className='pr-status warn'; n.textContent='Tick at least one capability to anchor the price.'; if(mp) mp.textContent=''; return; }
+  if(be>b.entry){ n.className='pr-status warn'; n.textContent='Your cost floor '+fmtMoney(be)+' is above the market entry '+fmtMoney(b.entry)+'. Price at or above the floor and justify with depth, or cut cost with caching and cheap model routing.'; }
+  else { n.className='pr-status ok'; n.textContent='Market entry is '+fmtMoney(b.entry)+', your floor is '+fmtMoney(be)+'. A base near '+fmtMoney(sugg)+' fits the market and clears cost. Meter AI actions and scraping as credits on top, the 2026 norm.'; }
+  var price=val('subPrice');
+  if(mp){
+    if(price>b.premium){ mp.className='pr-status bad'; mp.textContent='Will buyers purchase. Likely not. Your price '+fmtMoney(price)+' is above the market ceiling '+fmtMoney(b.premium)+', cheaper comparable tools exist. Lower toward the median '+fmtMoney(b.median)+' or differentiate hard on outcomes.'; }
+    else if(price>b.median){ mp.className='pr-status warn'; mp.textContent='Premium position. '+fmtMoney(price)+' is above the median '+fmtMoney(b.median)+'. Buyers will purchase only if the value is clearly higher. Justify with depth and outcomes.'; }
+    else if(price>=b.entry){ mp.className='pr-status ok'; mp.textContent='Buyers will purchase. Priced inside the market range '+fmtMoney(b.entry)+' to '+fmtMoney(b.median)+'. Competitive.'; }
+    else { mp.className='pr-status warn'; mp.textContent='Below the market entry '+fmtMoney(b.entry)+'. Buyers purchase, but a price this low can signal low value and you leave revenue on the table. You can raise toward '+fmtMoney(b.median)+'.'; }
+  }
+}
+function useMarket(){ if(window._mkt){ setvFull('subPrice',window._mkt); toast('Base price set to '+fmtMoney(window._mkt)+'. See it on the Cost Calculator tab.'); recompute(); renderMarket(); } }
+fillModels();
+['users','apiPerUser','stGb','jobsPU','llmPU','subPrice','haiku','save','cacheHit'].forEach(updateChip);
+recompute();
+renderScen();
+</script>
+<div id="toast"></div>
+</body>
+</html>

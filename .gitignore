@@ -1,0 +1,5 @@
+.claude/
+.DS_Store
+secret-env-files
+.env
+.env.*
