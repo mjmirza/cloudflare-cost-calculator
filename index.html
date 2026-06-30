@@ -188,6 +188,18 @@
       </div>
 
       <div class="card">
+        <h2>MCP traffic</h2>
+        <div class="toggle"><input type="checkbox" id="mcpMode" onchange="recompute()"><label for="mcpMode">Model API traffic as MCP usage (derives requests per user)</label></div>
+        <div class="note">One user question fans out into many MCP requests. Protocol handshakes, agentic tool calls, and retries. Turn this on to derive the true request volume from the human unit (questions) instead of guessing a flat number.</div>
+        <div class="row"><label>Brain questions per user / month<span class="sub">the billable unit a person actually asks</span></label><input type="number" id="mcpQ" value="500" oninput="recompute()"></div>
+        <div class="row"><label>Tool calls per question<span class="sub">agentic fan-out, the LLM chains calls</span></label><input type="number" id="mcpFanout" value="3" oninput="recompute()"></div>
+        <div class="row"><label>Sessions per user / month<span class="sub">each connect re-runs the handshake</span></label><input type="number" id="mcpSessions" value="60" oninput="recompute()"></div>
+        <div class="row"><label>Protocol requests per session<span class="sub">initialize, tools/list, pings</span></label><input type="number" id="mcpProto" value="6" oninput="recompute()"></div>
+        <div class="row"><label>Retry multiplier<span class="sub">reconnects and transient failures</span></label><input type="number" id="mcpRetry" value="1.3" oninput="recompute()"></div>
+        <div class="infocard" id="mcpDerived" style="margin-top:6px"></div>
+      </div>
+
+      <div class="card">
         <h2>Database (D1)</h2>
         <div class="row"><label>D1 reads per request</label><input type="number" id="d1Reads" value="3" oninput="recompute()"></div>
         <div class="row"><label>D1 writes per request</label><input type="number" id="d1Writes" value="0.3" oninput="recompute()"></div>
@@ -471,6 +483,10 @@ function compute(){
   var subPrice=val('subPrice'), payShare=val('payShare')/100, payFee=val('payFee')/100;
   var pushOptIn=val('pushOptIn')/100, pushPU=val('pushPU');
 
+  var mcpMode=checked('mcpMode'), mcpQ=val('mcpQ'), mcpFanout=val('mcpFanout'), mcpSessions=val('mcpSessions'), mcpProto=val('mcpProto'), mcpRetry=val('mcpRetry');
+  var mcpRawReq=mcpSessions*mcpProto + mcpQ*mcpFanout*mcpRetry;
+  if(mcpMode){ apiPU=mcpRawReq; }
+
   var totalReq=U*apiPU;
   var wBase=5, wReq=Math.max(0,totalReq-10e6)/1e6*0.30, wCpu=Math.max(0,totalReq*cpuMs-30e6)/1e6*0.02; var workers=wBase+wReq+wCpu;
   var doReq=totalReq*statefulPct, doR=Math.max(0,doReq-1e6)/1e6*0.15, doD=Math.max(0,doReq*(doMs/1000)*(128/1024)-400000)/1e6*12.5; var dobj=doR+doD;
@@ -520,6 +536,21 @@ function compute(){
 
 function recompute(){
   var r=compute();
+  var mcpOn=checked('mcpMode');
+  var apiEl=document.getElementById('apiPerUser'); if(apiEl) apiEl.disabled=mcpOn;
+  var apiSl=document.getElementById('apiPerUser_r'); if(apiSl) apiSl.disabled=mcpOn;
+  if(mcpOn){ var rawReq=val('mcpSessions')*val('mcpProto')+val('mcpQ')*val('mcpFanout')*val('mcpRetry'); setvFull('apiPerUser',Math.round(rawReq)); }
+  var md=document.getElementById('mcpDerived');
+  if(md){
+    if(mcpOn){
+      var q=val('mcpQ'); var raw=val('mcpSessions')*val('mcpProto')+q*val('mcpFanout')*val('mcpRetry'); var ratio=0; if(q>0) ratio=raw/q;
+      var mh='<div class="it"><span>Billable unit</span><b>'+fmtNum(q)+' questions / user / mo</b></div>';
+      mh+='<div class="it"><span>Raw MCP requests / user</span><b>'+fmtNum(raw)+'</b></div>';
+      mh+='<div class="it"><span>Fan-out ratio</span><b>'+ratio.toFixed(1)+'x requests per question</b></div>';
+      mh+='<div class="it"><span>What it drives</span><b class="free">Workers, D1, DO and cache. Protocol and retries are cheap, no LLM.</b></div>';
+      md.innerHTML=mh;
+    } else { md.innerHTML='<div class="it"><span>MCP mode off</span><b>API requests per user is the flat number above</b></div>'; }
+  }
   document.getElementById('r_users').textContent=fmtNum(r.U);
   document.getElementById('r_total').textContent=fmtMoney(r.total);
   document.getElementById('r_rev').textContent=fmtMoney(r.netRev);
@@ -641,10 +672,11 @@ var PROFILES={
 function applyProfile(p,el){ var o=PROFILES[p]||PROFILES.typical; for(var k in o){ setvFull(k,o[k]); } document.querySelectorAll('.profbtn').forEach(function(b){ b.classList.remove('active'); }); if(el) el.classList.add('active'); recompute(); }
 function setFromDay(monthlyId,dayId){ var v=Math.round(val(dayId)*(val('daysActive')||1)); setvFull(monthlyId,v); recompute(); }
 var defaults={users:100000,apiPerUser:10000,cpuMs:8,statefulPct:10,doMs:50,d1Reads:3,d1Writes:0.3,d1Kb:10,cacheHit:30,cacheReadsPU:200,redisGb:1,qjPU:4,addPU:0.1,coldDays:30,deleteDays:365,stGb:1,upPU:10,dlPU:100,jobsPU:2,gbJob:0.02,proxyGB:4,minJob:3,srvCost:48,srvHours:500,vq:100,vstored:50,dims:768,txPU:10,nlPU:4,llmPU:50,inTok:2000,outTok:1000,haiku:70,save:40,subPrice:10,payShare:100,payFee:3,daysActive:31,targetMargin:70,churn:5,cac:50,pushOptIn:30,pushPU:8};
+defaults.mcpQ=500; defaults.mcpFanout=3; defaults.mcpSessions=60; defaults.mcpProto=6; defaults.mcpRetry=1.3;
 function resetAll(){ for(var k in defaults){ var el=document.getElementById(k); if(el) el.value=defaults[k]; var r=document.getElementById(k+'_r'); if(r) r.value=defaults[k]; }
   document.getElementById('provider').value='ses'; document.getElementById('cacheProvider').value='kv'; document.getElementById('scrapeCompute').value='hetzner'; document.getElementById('region').value='eu';
   document.getElementById('modelHeavy').value='sonnet46'; document.getElementById('modelCheap').value='haiku45';
-  document.getElementById('includeLLM').checked=true; document.getElementById('useRetention').checked=false; document.getElementById('pro').checked=false; document.getElementById('lb').checked=false;
+  document.getElementById('includeLLM').checked=true; document.getElementById('useRetention').checked=false; document.getElementById('pro').checked=false; document.getElementById('lb').checked=false; document.getElementById('mcpMode').checked=false;
   clearPreset(); var b=document.querySelector('.pbtn[data-u="100000"]'); if(b) b.classList.add('active');
   ['users','apiPerUser','stGb','jobsPU','llmPU','subPrice','haiku','save','cacheHit'].forEach(updateChip); recompute(); }
 
