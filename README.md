@@ -1,5 +1,7 @@
 # Cloudflare App Cost Calculator
 
+[![OpenRoots ORA 2.3](https://openroots.org/badge/ora.svg)](https://openroots.org/licenses/ora/2.3)
+
 A single-file, client-side calculator that models the full monthly cost and profit of running an application entirely on Cloudflare. It covers Workers, Durable Objects, D1, R2, KV, Queues, Vectorize, email, security, residential-proxy scraping, LLM usage, and a push notification subsystem, then lays it against revenue so you can see margin in real time.
 
 Live tool. https://mjmirza.github.io/cloudflare-cost-calculator/
