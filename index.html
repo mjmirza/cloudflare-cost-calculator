@@ -140,7 +140,7 @@
 </head>
 <body>
 <div class="wrap">
-  <header><h1>Cloudflare App Cost Calculator</h1><p>Model picker, sticky P&amp;L, click any breakdown row to expand. Live, client-side. Prices verified 2026-08-30, models 2026-05-31.</p></header>
+  <header><h1>Cloudflare App Cost Calculator</h1><p>Model picker, sticky P&amp;L, click any breakdown row to expand. Live, client-side. Prices verified 2026-08-30, models 2026-08-30.</p></header>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="showTab('calc',this)">Cost Calculator</button>
@@ -266,6 +266,14 @@
         <div class="toggle"><input type="checkbox" id="pro" onchange="recompute()"><label for="pro">Enhanced WAF (Pro +$20/mo)</label></div>
         <div class="toggle"><input type="checkbox" id="lb" onchange="recompute()"><label for="lb">Load Balancer (+$5/mo)</label></div>
         <div class="infocard" id="secinfo" style="margin-top:6px"></div>
+      </div>
+      <div class="card">
+        <h2>Browser, Images, Realtime</h2>
+        <div class="row"><label>Browser Rendering hours / month<span class="sub">Browser Run, 10 hr/mo included</span></label><input type="number" id="brHours" value="0" oninput="recompute()"></div>
+        <div class="row"><label>Images stored (total)</label><input type="number" id="imgStored" value="0" oninput="recompute()"></div>
+        <div class="row"><label>Images delivered / month</label><input type="number" id="imgDeliv" value="0" oninput="recompute()"></div>
+        <div class="row"><label>Image transforms / month<span class="sub">5,000/mo included</span></label><input type="number" id="imgTx" value="0" oninput="recompute()"></div>
+        <div class="row"><label>Realtime egress GB / month<span class="sub">SFU and TURN, 1,000 GB/mo included</span></label><input type="number" id="rtGB" value="0" oninput="recompute()"></div>
       </div>
 
       <div class="card">
@@ -438,16 +446,16 @@
       <p class="muted" style="margin-top:12px">Sources. Firecrawl, Apify and ScrapingBee pricing pages, Clay pricing 2026, OpenView usage based pricing data, Monetizely AI first SaaS economics 2026. Verified 2026-06-13, re check before a production decision.</p></div>
   </div></section>
 
-  <footer>Self-contained, no data leaves your browser. Cloudflare core pricing flat globally. Model rates per 1M tokens from the frontier atlas (2026-05-31), live-verify before production. Stripe fee on net revenue. DDoS free.</footer>
+  <footer>Self-contained, no data leaves your browser. Cloudflare core pricing flat globally. Model rates per 1M tokens from the frontier atlas (2026-08-30), live-verify before production. Stripe fee on net revenue. DDoS free.</footer>
 </div>
 
 <script>
 var MODELS={
- fable5:{n:'Claude Fable 5',i:10,o:50}, opus48:{n:'Claude Opus 4.8',i:5,o:25}, sonnet46:{n:'Claude Sonnet 4.6',i:3,o:15}, haiku45:{n:'Claude Haiku 4.5',i:0.25,o:1.25},
- gpt55:{n:'OpenAI GPT-5.5',i:5,o:30}, gpt5codex:{n:'OpenAI GPT-5 Codex',i:1.75,o:14},
- gemini31pro:{n:'Gemini 3.1 Pro',i:2,o:12}, gemini35flash:{n:'Gemini 3.5 Flash',i:1.5,o:9}, gemini3flash:{n:'Gemini 3 Flash',i:0.5,o:3},
+ fable5:{n:'Claude Fable 5',i:10,o:50}, opus48:{n:'Claude Opus 5',i:5,o:25}, sonnet46:{n:'Claude Sonnet 5',i:3,o:15}, haiku45:{n:'Claude Haiku 4.5',i:1,o:5},
+ gpt55:{n:'OpenAI GPT-5.5',i:5,o:30}, gpt5codex:{n:'OpenAI GPT-5.3 Codex',i:1.75,o:14},
+ gemini31pro:{n:'Gemini 3.1 Pro Preview',i:2,o:12}, gemini35flash:{n:'Gemini 3.5 Flash',i:1.5,o:9}, gemini3flash:{n:'Gemini 3 Flash',i:0.5,o:3},
  grok43:{n:'Grok 4.3',i:1.25,o:2.5}, grok41fast:{n:'Grok 4.1 Fast',i:0.2,o:0.5},
- deepseekv4pro:{n:'DeepSeek V4 Pro',i:0.44,o:0.87}, deepseekv4flash:{n:'DeepSeek V4 Flash',i:0.14,o:0.28},
+ deepseekv4pro:{n:'DeepSeek V4 Pro',i:0.66,o:1.98}, deepseekv4flash:{n:'DeepSeek V4 Flash',i:0.22,o:0.66},
  qwen37max:{n:'Qwen3.7-Max',i:2.5,o:7.5}, kimi26:{n:'Kimi K2.6',i:0.68,o:3.42}, glm51:{n:'GLM-5.1',i:1.4,o:4.4}, minimaxm25:{n:'MiniMax M2.5',i:0.3,o:1.2},
  workersai:{n:'Cloudflare Workers AI (cheap)',i:0.02,o:0.11}
 };
@@ -476,7 +484,7 @@ document.getElementById('cacheHit_r').addEventListener('input',function(){ docum
 (function(){var st=document.createElement('style');st.textContent='.fieldtag{display:inline-block;margin-left:6px;font-size:9px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;padding:1px 5px;border-radius:5px;vertical-align:middle;white-space:nowrap}.fieldtag.off{background:#fde2e1;color:#9b1c17}.fieldtag.low{background:#fef3c7;color:#92400e}.fieldtag.note{background:#e6eef7;color:#1e4e79}.row.f-off,.slider-row.f-off{opacity:.6}';document.head.appendChild(st);})();
 var IMPACT_ALWAYS={daysActive:'drives the per-day fields',region:'same cost EU and US',targetMargin:'used by the advisor',churn:'drives LTV',cac:'drives CAC payback'};
 var IMPACT_REASON={addPU:'retention is off',coldDays:'retention is off',deleteDays:'retention is off',stGb:'retention is on, tiered storage used',redisGb:'KV selected, switch cache layer to Upstash',srvCost:'Cloudflare Containers selected',srvHours:'Cloudflare Containers selected',minJob:'no research jobs',gbJob:'no research jobs',proxyGB:'no research jobs',inTok:'LLM excluded from total',outTok:'LLM excluded from total',haiku:'LLM excluded from total',save:'LLM excluded from total',llmPU:'LLM excluded from total',modelHeavy:'LLM excluded from total',modelCheap:'LLM excluded from total'};
-var IMPACT_FIELDS=['apiPerUser','cpuMs','statefulPct','doMs','d1Reads','d1Writes','d1Kb','cacheProvider','cacheHit','cacheReadsPU','redisGb','qjPU','addPU','coldDays','deleteDays','stGb','upPU','dlPU','scrapeCompute','jobsPU','gbJob','proxyGB','minJob','srvCost','srvHours','modelHeavy','modelCheap','llmPU','inTok','outTok','haiku','save','vq','vstored','dims','txPU','nlPU','provider','pushOptIn','pushPU','subPrice','payShare','payFee','users','daysActive','region','targetMargin','churn','cac'];
+var IMPACT_FIELDS=['apiPerUser','cpuMs','statefulPct','doMs','d1Reads','d1Writes','d1Kb','cacheProvider','cacheHit','cacheReadsPU','redisGb','qjPU','addPU','coldDays','deleteDays','stGb','upPU','dlPU','scrapeCompute','jobsPU','gbJob','proxyGB','minJob','srvCost','srvHours','modelHeavy','modelCheap','llmPU','inTok','outTok','haiku','save','vq','vstored','dims','txPU','nlPU','provider','pushOptIn','pushPU','subPrice','payShare','payFee','users','daysActive','region','targetMargin','churn','cac','brHours','imgStored','imgDeliv','imgTx','rtGB'];
 function _sig(){var r=compute();var p=[r.total,r.profit,r.netRev];var s=p.concat([r.infra,r.external,r.llm,r.perUser,r.jobs,r.proxyData,r.computeHours,r.r2GbTotal,r.pushSends,r.d1Gb,r.totalReq,r.llmCalls,r.push]);(r.parts||[]).forEach(function(x){s.push(x.v);});return {p:p,s:s};}
 function _mrel(a,b){var m=0;for(var i=0;i<a.length;i++){var d=Math.abs(b[i]-a[i]);if(d>1e-9){var rel=Math.abs(a[i])>1e-9?d/Math.abs(a[i]):1;if(rel>m)m=rel;}}return m;}
 function _setField(id,state,text){var el=document.getElementById(id);if(!el)return;var row=el.closest('.row')||el.closest('.slider-row');if(!row)return;row.classList.remove('f-off');var tag=row.querySelector('.fieldtag');if(state==='ok'){if(tag)tag.parentNode.removeChild(tag);return;}if(state==='off')row.classList.add('f-off');if(!tag){tag=document.createElement('span');tag.className='fieldtag';var host=row.querySelector('.top')||row.querySelector('label')||row;host.appendChild(tag);}tag.className='fieldtag '+(state==='off'?'off':state==='low'?'low':'note');tag.textContent=text;}
@@ -493,6 +501,7 @@ function compute(){
   var includeLLM=checked('includeLLM'), pro=checked('pro'), lb=checked('lb');
   var subPrice=val('subPrice'), payShare=val('payShare')/100, payFee=val('payFee')/100;
   var pushOptIn=val('pushOptIn')/100, pushPU=val('pushPU');
+  var brHours=val('brHours'), imgStored=val('imgStored'), imgDeliv=val('imgDeliv'), imgTx=val('imgTx'), rtGB=val('rtGB');
 
   var mcpMode=checked('mcpMode'), mcpQ=val('mcpQ'), mcpFanout=val('mcpFanout'), mcpSessions=val('mcpSessions'), mcpProto=val('mcpProto'), mcpRetry=val('mcpRetry');
   var mcpRawReq=mcpSessions*mcpProto + mcpQ*mcpFanout*mcpRetry;
@@ -522,7 +531,11 @@ function compute(){
 
   var pushSubs=U*pushOptIn, pushSends=pushSubs*pushPU;
   var pushReq=pushSends/1e6*0.30, pushQ=pushSends/1e6*0.40, pushStore=Math.max(0,pushSubs*0.5/1e6-1)*0.50, push=pushReq+pushQ+pushStore;
-  var infra=workers+dobj+d1+r2+cache+queues+vec+email+security+push;
+  var cfBr=Math.max(0,brHours-10)*0.09;
+  var cfImg=Math.max(0,imgStored)/100000*5 + Math.max(0,imgDeliv)/100000*1 + Math.max(0,imgTx-5000)/1000*0.50;
+  var cfRt=Math.max(0,rtGB-1000)*0.05;
+  var cfnew=cfBr+cfImg+cfRt;
+  var infra=workers+dobj+d1+r2+cache+queues+vec+email+security+push+cfnew;
   var total=infra+external+(includeLLM?llm:0);
   var grossRev=U*subPrice*payShare, netRev=grossRev*(1-payFee), profit=netRev-total, margin=netRev>0?profit/netRev*100:0, perUser=U>0?total/U:0;
 
@@ -537,6 +550,7 @@ function compute(){
       {k:'Vectorize',v:vec,sub:[['Queries',vQ],['Stored',vS]]},
       {k:'Email',v:email,sub:[['Sends',email]]},
       {k:'Security',v:security,sub:[['WAF',secWaf],['Load balancer',secLb]]},
+      {k:'Browser, Images, Realtime',v:cfnew,sub:[['Browser Rendering',cfBr],['Images',cfImg],['Realtime',cfRt]]},
       {k:'Push and pop-ups',v:push,sub:[['Send fan-out '+fmtNum(pushSends),pushReq],['Queue fan-out',pushQ],['Subscription storage',pushStore]]},
       {k:'Residential proxy',v:proxy,amber:true,sub:[['Proxy data '+fmtGB(proxyData),proxy]]},
       {k:(scrapeCompute==='hetzner'?'Scraping (Hetzner '+serversNeeded+' srv)':'Scraping (CF Containers)'),v:scrapeC,amber:true,sub:[['Compute '+fmtNum(computeHours)+' hrs',scrapeC]]}
