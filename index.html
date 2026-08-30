@@ -140,7 +140,7 @@
 </head>
 <body>
 <div class="wrap">
-  <header><h1>Cloudflare App Cost Calculator</h1><p>Model picker, sticky P&amp;L, click any breakdown row to expand. Live, client-side. Prices verified 2026-06-13, models 2026-05-31.</p></header>
+  <header><h1>Cloudflare App Cost Calculator</h1><p>Model picker, sticky P&amp;L, click any breakdown row to expand. Live, client-side. Prices verified 2026-08-30, models 2026-05-31.</p></header>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="showTab('calc',this)">Cost Calculator</button>
@@ -262,7 +262,7 @@
         <div class="row"><label>Vector dimensions</label><input type="number" id="dims" value="768" oninput="recompute()"></div>
         <div class="row"><label>Transactional emails / user / month</label><input type="number" id="txPU" value="10" oninput="recompute()"></div>
         <div class="row"><label>Newsletter sends / user / month</label><input type="number" id="nlPU" value="4" oninput="recompute()"></div>
-        <div class="row"><label>Email provider</label><select id="provider" onchange="recompute()"><option value="ses">Amazon SES</option><option value="cf">Cloudflare Email</option></select></div>
+        <div class="row"><label>Email provider</label><select id="provider" onchange="recompute()"><option value="ses">Amazon SES</option><option value="cf">Cloudflare Email (inbound free, outbound beta)</option></select></div>
         <div class="toggle"><input type="checkbox" id="pro" onchange="recompute()"><label for="pro">Enhanced WAF (Pro +$20/mo)</label></div>
         <div class="toggle"><input type="checkbox" id="lb" onchange="recompute()"><label for="lb">Load Balancer (+$5/mo)</label></div>
         <div class="infocard" id="secinfo" style="margin-top:6px"></div>
@@ -374,6 +374,17 @@
       <tr><td>Max database size</td><td>10 GB, shard above this</td></tr>
       <tr><td>Databases per account</td><td>50,000</td></tr>
       <tr><td>Max storage per account</td><td>1 TB, move to Postgres + Hyperdrive past this</td></tr></table></div>
+    <div class="card"><h2>New Cloudflare services (2026)</h2><table class="ref"><tr><th>Service</th><th>Price</th><th>Free / included</th></tr>
+      <tr><td>Browser Rendering (Browser Run)</td><td>$0.09 per browser-hour</td><td>10 hr/mo Paid, 10 concurrent</td></tr>
+      <tr><td>Cloudflare Images</td><td>$5 / 100k stored, $1 / 100k delivered, $0.50 / 1k transforms</td><td>5,000 transforms/mo</td></tr>
+      <tr><td>Realtime (SFU + TURN)</td><td>$0.05 per GB egress</td><td>1,000 GB/mo, TURN free with SFU</td></tr>
+      <tr><td>Durable Objects SQLite storage</td><td>rows read $0.001/M, written $1/M, storage $0.20/GB-mo</td><td>25B reads, 50M writes, 5 GB</td></tr>
+      <tr><td>Containers disk</td><td>$0.00000007 per GB-second</td><td>200 GB-hr</td></tr>
+      <tr><td>AI Gateway</td><td>core free, no per-call fee. Unified Billing adds 5% on pass-through model tokens</td><td>1M logs/mo Paid</td></tr>
+      <tr><td>R2 SQL</td><td>$2.50 per TB scanned (billing pending)</td><td>10 GB/mo scanned Paid</td></tr>
+      <tr><td>Pipelines</td><td>transforms $0.04/GB, sink from $0.03/GB (billing pending)</td><td>ingress free</td></tr>
+      <tr><td>Hyperdrive</td><td>free, included in Workers Paid</td><td>unlimited queries</td></tr></table>
+      <p class="muted" style="margin-top:8px">Verified live 2026-08-30 against Cloudflare official pricing pages. Items marked billing pending have announced prices but metering is not yet enabled.</p></div>
   </div></section>
 
   <section id="panel-ready" class="panel"><div class="archwrap">
@@ -498,7 +509,7 @@ function compute(){
   var cacheReads=U*cacheReadsPU, cache; if(cacheProvider==='kv') cache=Math.max(0,cacheReads-10e6)/1e6*0.5; else cache=cacheReads/100000*0.2+redisGb*0.25;
   var queues=Math.max(0,U*qjPU-1e6)/1e6*0.4;
   var vQ=Math.max(0,U*vq*dims-50e6)/1e6*0.01, vS=Math.max(0,U*vstored*dims-10e6)/100e6*0.05; var vec=vQ+vS;
-  var emails=U*(txPU+nlPU), email; if(provider==='ses') email=emails/1000*0.10; else email=Math.max(0,emails-3000)/1000*0.35;
+  var emails=U*(txPU+nlPU), email; if(provider==='ses') email=emails/1000*0.10; else email=0; /* Cloudflare Email Routing inbound is free on all plans, outbound Email Workers is a free beta, no published per-1000 price */
   var secWaf=pro?20:0, secLb=lb?5:0, security=secWaf+secLb;
   var jobs=U*jobsPU, proxyData=jobs*gbJob, proxy=proxyData*proxyGB*(1-cacheHit), computeHours=jobs*minJob/60, serversNeeded=0, scrapeC;
   if(scrapeCompute==='hetzner'){ serversNeeded=srvHours>0?Math.ceil(computeHours/srvHours):0; scrapeC=serversNeeded*srvCost; }
